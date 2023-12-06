@@ -1,5 +1,5 @@
 # hand_tracking
-In Dr. Daniel O'Connor's lab, we are interested in 3D shape perception from touch in primates. We use their hands to grasp, recognize, and manipulate objects. To understand how we perceive 3D shapes using tactile signals, it is critical to track how hands interact with objects. This repository is created for markerless 3D tracking of monkey hand from multiple camera views. It leverages the machine learning approach **DeepLabCut** to track keypoints in 2D and **NCams** to estimate 3D pose. 
+In Dr. Daniel O'Connor's lab, we are interested in 3D shape perception from touch in primates. We use our hands to grasp, recognize, and manipulate objects. To understand how we perceive 3D shapes using tactile signals, it is critical to track how hands interact with objects. This repository is created for markerless 3D tracking of monkey hand from multiple camera views. It leverages the machine learning approach **DeepLabCut** to track keypoints in 2D and **NCams** to estimate 3D pose. 
 
 DeepLabCut is a 2D CNN. Currently, I'm exploring other 3D tracking tools that use 3D CNNs ([DANNCE](https://github.com/spoonsso/dannce)) or hybrid 2D/3D CNNs [JARVIS](https://github.com/JARVIS-MoCap/JARVIS-HybridNet). I will compare the performance of different 3D tracking tools to determine which networks work better in our study. 
 
