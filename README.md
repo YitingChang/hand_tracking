@@ -1,5 +1,7 @@
 # hand_tracking
-This repository is for markerless 3D tracking of monkey hand from multiple camera views. It leverages the machine learning approach **DeepLabCut** to track keypoints in 2D and **NCams** to estimate 3D pose. 
+In Dr. Daniel O'Connor's lab, we are interested in 3D shape perception from touch in primates. Primates use their hands to grasp, recognize, and manipulate objects. To understand how we perceive 3D shapes using tactile signals, it is critical to track how hands interact with objects. This repository is created for markerless 3D tracking of monkey hand from multiple camera views. It leverages the machine learning approach **DeepLabCut** to track keypoints in 2D and **NCams** to estimate 3D pose. 
+
+DeepLabCut is a 2D CNN. Currently, I'm exploring other 3D tracking tools that use 3D CNNs ([DANNCE](https://github.com/spoonsso/dannce)) or hybrid 2D/3D CNNs [JARVIS](https://github.com/JARVIS-MoCap/JARVIS-HybridNet). I will compare the performance of different 3D tracking tools to determine which networks work better in our study. 
 
 ## Prerequisites
 - **Software**
@@ -10,7 +12,7 @@ This repository is for markerless 3D tracking of monkey hand from multiple camer
     - NCams is a toolbox to use multiple cameras to track and reconstruct the kinematics of primate limbs. As of October 31st, 2023, this repository uses the modules of camera calibration and triangulation. The module for musculoskeletal modeling based on [OpenSIM](https://simtk.org/frs/index.php?group_id=91#package_id319) may be useful. Consider to add it to the processing pipeline later.  
     - NCams is not actively maintained, so some functions/modules don't work. I (Yiting) fixed some issues. Consider to share my version of NCams and the virtual environment that I use for this repository.
     - Some functions are missing in NCams/Examples, so only use the scripts from NCams/Examples/NewExamples!
-    - We can also try other 3D tracking tools such as [Anipose](https://anipose.readthedocs.io/en/latest/) and [Lightning Pose](https://github.com/danbider/lightning-pose), and compare the results from different 3D tracking tools.
+    - Other 3D tracking tools: [Anipose](https://anipose.readthedocs.io/en/latest/), [Lightning Pose](https://github.com/danbider/lightning-pose), [DANNCE](https://github.com/spoonsso/dannce), and [JARVIS](https://github.com/JARVIS-MoCap/JARVIS-HybridNet)
 - **Hardware**\
 To study 3D shape perception from touch, experiments are designed to be conducted in the dark to minimize visual information of 3D objects. Therefore, in this study, infrared illuminators and cameras are used to capture images in the dark. 
   - Cameras:\
