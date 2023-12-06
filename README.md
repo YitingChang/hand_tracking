@@ -10,8 +10,6 @@ DeepLabCut is a 2D CNN. Currently, I'm exploring other 3D tracking tools that us
   - Note:
     - [3D DeepLabCut](https://deeplabcut.github.io/DeepLabCut/docs/Overviewof3D.html) only supports 2-camera based 3D pose estimation as of October 31st, 2023. Therefore, we use NCams for 3D tracking from more than 2 cameras.
     - NCams is a toolbox to use multiple cameras to track and reconstruct the kinematics of primate limbs. As of October 31st, 2023, this repository uses the modules of camera calibration and triangulation. The module for musculoskeletal modeling based on [OpenSIM](https://simtk.org/frs/index.php?group_id=91#package_id319) may be useful. Consider to add it to the processing pipeline later.  
-    - NCams is not actively maintained, so some functions/modules don't work. I (Yiting) fixed some issues. Consider to share my version of NCams and the virtual environment that I use for this repository.
-    - Some functions are missing in NCams/Examples, so only use the scripts from NCams/Examples/NewExamples!
     - Other 3D tracking tools: [Anipose](https://anipose.readthedocs.io/en/latest/), [Lightning Pose](https://github.com/danbider/lightning-pose), [DANNCE](https://github.com/spoonsso/dannce), and [JARVIS](https://github.com/JARVIS-MoCap/JARVIS-HybridNet)
 - **Hardware**\
 To study 3D shape perception from touch, experiments are designed to be conducted in the dark to minimize visual information of 3D objects. Therefore, in this study, infrared illuminators and cameras are used to capture images in the dark. 
