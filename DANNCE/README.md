@@ -1,4 +1,5 @@
-# Use DANNCE for tracking monkey hand in 3D
-https://github.com/spoonsso/dannce
+# DANNCE for hand tracking in 3D
+
+Reference: https://github.com/spoonsso/dannce
 
 
