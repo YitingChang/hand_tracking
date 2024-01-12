@@ -1,4 +1,5 @@
-Current workflow for Lightning Pose:
+Workflow for Lightning Pose\
+01/12/2024
 1. Fuse frames from multiple camera views and create a video (FuseFrames.ipynb)
 2. Create a DeepLabCut project (DLC_training_Yiting.ipynb)
 3. Extract frames  (DLC_training_Yiting.ipynb)
