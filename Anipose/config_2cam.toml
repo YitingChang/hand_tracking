@@ -1,0 +1,92 @@
+project = "2cam_test"
+path = "/home/yiting/Documents/Anipose_projects"
+model_folder = "/home/tuthill/lili/flypose-test-Lili-2018-12-10"
+
+nesting = 20
+
+video_extension = 'mp4'
+
+[pipeline]
+videos_raw = "videos_raw"
+calibration_videos = "calibration_videos"
+calibration_results = "calibration_results"
+pose_2d = "LP_pose_2d"
+pose_2d_filter = "pose_2d_filter"
+pose_3d = "pose_3d"
+
+[calibration]
+# checkerboard / charuco / aruco
+board_type = "checkerboard"
+
+# width and height of grid, in squares
+board_size = [4, 3]
+
+# number of bits in the markers, if aruco/charuco
+board_marker_bits = 6
+
+# number of markers in dictionary, if aruco/charuco
+board_marker_dict_number = 250
+
+# length of marker side
+board_marker_length = 9 # mm
+
+# If aruco, length of marker separation
+# board_marker_separation_length = 1 # mm
+
+# If charuco or checkerboard, square side length
+board_square_side_length = 15 # mm
+
+animal_calibration = false
+
+calibration_init = "calibration_init.toml"
+
+[manual_verification]
+manually_verify = false
+
+[filter] # Parameters for 2D Filtering
+enabled = false
+medfilt = 13
+offset_threshold = 25
+score_threshold = 0.5
+spline = true
+
+[labeling]
+scheme = [
+   ["index_PIP", "index_DIP", "index_Tip"],
+   ["middle_PIP", "middle_DIP", "middle_Tip"],
+   ["ring_PIP", "ring_DIP", "ring_Tip"],
+   ["small_PIP", "small_DIP", "small_Tip"]
+ ]
+
+[triangulation]
+cam_regex = 'cam([A-Z])'
+optim = true
+#axes = [
+#    ["x", "L1A", "L3A"],
+#    ["z", "L1B", "L1A"]
+#]
+#reference_point = "L1A"
+#cam_align = "C"
+
+[angles]
+L1_CF = ["L1A", "L1B", "L1C"]
+L1_FTi = ["L1B", "L1C", "L1D"]
+L1_TiTa = ["L1C", "L1D", "L1E"]
+
+L2_CF = ["L2A", "L2B", "L2C"]
+L2_FTi = ["L2B", "L2C", "L2D"]
+L2_TiTa = ["L2C", "L2D", "L2E"]
+
+L3_CF = ["L3A", "L3B", "L3C"]
+L3_FTi = ["L3B", "L3C", "L3D"]
+L3_TiTa = ["L3C", "L3D", "L3E"]
+
+# Cropping
+#[cameras.A]
+#offset = [224, 120, 832, 704]
+
+#[cameras.B]
+#offset = [224, 230, 800, 700]
+
+#[cameras.C]
+#offset = [160, 250, 864, 700]
