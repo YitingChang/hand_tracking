@@ -1,16 +1,38 @@
 # hand_tracking
-In Dr. Daniel O'Connor's lab, we are interested in 3D shape perception from touch in primates. We use our hands to grasp, recognize, and manipulate objects. To understand how we perceive 3D shapes using tactile signals, it is critical to track how hands interact with objects. This repository is created for markerless 3D tracking of monkey hand from multiple camera views. It leverages the machine learning approach **DeepLabCut** to track keypoints in 2D and **NCams** to estimate 3D pose. 
+In Dr. Daniel O'Connor's lab, we are interested in 3D shape perception from touch in primates. We use our hands to grasp, recognize, and manipulate objects. To understand how we perceive 3D shapes using tactile signals, it is critical to track how hands interact with objects. This repository is created for markerless 3D tracking of monkey hand from multiple camera views. It leverages the machine learning approach **Lightning Pose** / **DeepLabCut** to track keypoints in 2D and **Anipose** / **NCams** to estimate 3D pose. We then can apply musculoskeletal modeling (**OpenSim**). 
 
-DeepLabCut is a 2D CNN. Currently, I'm exploring other 3D tracking tools that use 3D CNNs ([DANNCE](https://github.com/spoonsso/dannce)) or hybrid 2D/3D CNNs [JARVIS](https://github.com/JARVIS-MoCap/JARVIS-HybridNet). In addition, I'm using [lightning-pose](https://github.com/danbider/lightning-pose), a semi-supervised learning model, to train models on both labeled and unlabeled videos. I will compare the performance of different tracking tools to determine which networks work better in our study. 
+
+Notes:
+- DeepLabCut and Lightning Pose are 2D CNNs. I'm exploring other 3D tracking tools that use 3D CNNs ([DANNCE](https://github.com/spoonsso/dannce)) or hybrid 2D/3D CNNs [JARVIS](https://github.com/JARVIS-MoCap/JARVIS-HybridNet). 
+
+ 
+## Workflow
+1. **Camera calibration** \
+Both **Jarvis** and **Anipose** require camera calibration.See below sections and corresponding folders for detailed instructions. 
+
+2. **Annotation** \
+**Jarvis** provides a great annotation tool that leverages the multi camera recordings by projecting manual annotations on a subset of those cameras to the remaining ones, significantly reducing the amount of tedious manual annotations needed. \
+Jarvis GitHub: https://github.com/JARVIS-MoCap/JARVIS-AnnotationTool
+
+3. **Model training** \
+**Lightning Pose** improves pose estimation through (1) unsupervised losses (2) temporal context network and (3) post hoc refinement (Kalman smoothing). \
+Lightning Pose GitHub: https://github.com/danbider/lightning-pose \
+Lightning Pose paper: https://www.nature.com/articles/s41592-024-02319-1
+
+4. **Triangulation** \
+Following camera calibration, **Anipose** can triangulate 2D outpupts from Lightning Pose and refine estimation using spatiotemporal filters. \
+Anipose GitHub: https://github.com/lambdaloop/anipose \
+Anipose paper: https://doi.org/10.1016/j.celrep.2021.109730
+
+5. **Inverse kinematics** \
+OpenSim is a platform for modeling humans, animals, robots, and the environment, and simulating their interaction and movement.  \ https://simtk.org/projects/opensim/
+
+
 
 ## Prerequisites
-- **Software**
-  - DeepLabCut (https://deeplabcut.github.io/DeepLabCut/docs/UseOverviewGuide.html)
-  - NCams (https://github.com/CMGreenspon/NCams)
-  - Note:
-    - [3D DeepLabCut](https://deeplabcut.github.io/DeepLabCut/docs/Overviewof3D.html) only supports 2-camera based 3D pose estimation as of October 31st, 2023. Therefore, we use NCams for 3D tracking from more than 2 cameras.
-    - NCams is a toolbox to use multiple cameras to track and reconstruct the kinematics of primate limbs. As of October 31st, 2023, this repository uses the modules of camera calibration and triangulation. The module for musculoskeletal modeling based on [OpenSIM](https://simtk.org/frs/index.php?group_id=91#package_id319) may be useful. Consider to add it to the processing pipeline later.  
-    - Other 3D tracking tools: [Anipose](https://anipose.readthedocs.io/en/latest/), [Lightning Pose](https://github.com/danbider/lightning-pose), [DANNCE](https://github.com/spoonsso/dannce), and [JARVIS](https://github.com/JARVIS-MoCap/JARVIS-HybridNet)
+- **Software** \
+  Please install the software listed in the workflow section.
+
 - **Hardware**\
 To study 3D shape perception from touch, experiments are designed to be conducted in the dark to minimize visual information of 3D objects. Therefore, in this study, infrared illuminators and cameras are used to capture images in the dark. 
   - Cameras:\
@@ -19,52 +41,33 @@ To study 3D shape perception from touch, experiments are designed to be conducte
   - Illuminators:\
     [Edmundoptics IR Spot Lights](https://www.edmundoptics.com/f/advanced-illumination-long-working-distance-high-intensity-spot-lights/39791/) (940 nm)
   
-## Calibration
-- **Calibration Images**
-  - Print a checker or charuco board.
-  - For intrinsic calibration, take images for individial cameras. 
-  - For extrinsic calibration, take images for all cameras.
-  - Note:
-    - A charuco board is recommended. See an example [6*8 charuco board](charuco_board_6x8.pdf).
-    - We can use `ncams.camera_tools.create_board` to create a checker or charuco board (see Step 2 in [Camera_calibration_pipeline](Camera_calibration_pipeline.ipynb)).
-    - The function for creating a checker board in NCams does not work for an even-number board dimension. This bug was fixed in [Create_checkerboard](Create_checkerboard.ipynb).
-    - It is recommended to take about 50-70 sets of images. While taking images, try to cover several distances and all parts of views.
+## Camera Calibration
+- **Calibration Videos**
+  - Print a checker or charuco board. \
+  Provide example board (dimensions, library etc.)
+
+  - For intrinsic calibration, take videos for individial cameras. 
+  - For extrinsic calibration, take videos for all cameras (Anipose) or pairs of cameras (Jarvis).
+  - Notes:
+    - A charuco board is recommended. See an example [6*8 charuco board](NCams/charuco_board_6x8.pdf).
+    - We can use `ncams.camera_tools.create_board` to create a checker or charuco board (see Step 2 in [Camera_calibration_pipeline](NCams/Camera_calibration_pipeline.ipynb)).
+  
+    - Try to cover several distances and all parts of views.
     - For checker board calibration, keep the orientation consistent. Do not roate the checker board more than 30 degrees.
     - More tips can be found [here](https://deeplabcut.github.io/DeepLabCut/docs/Overviewof3D.html). 
 
 - **Camera Calibration**
 \
-  [Camera_calibration_pipeline](Camera_calibration_pipeline.ipynb) is an example script for camera calibration.\
-  It includes the following steps:
-  - Creating a configuration file and setting up file structures
-  - Creating a charuco or checker board
-  - Camera intrinsic calibration
-  - Camera extrinsic calibration
-     - One-shot multi PnP (if all cameras can capture the board at the same time)
-     - Sequential-stereoc (if not all cameras can capture the board at the same time)
-  - Loading an existing setup
-  - Calibrating an individual camera
+Please see the instructions in the Jarvis and Anipose folders.
 
-## 3D Tracking
-- **Video Recording**
+## Hand Anatomy 
+Insert an image for hand anatomy and example labeled frame. 
+
+## Video Recording
   - Cameras are set up to cover all key points of monkey hand, and each key point is viewed by at least 2 cameras.
   - Show (1) experimental setup (camera location etc.) and (2) a set of images from all the cameras.
   - Synchronization of multiple cameras. (Ask William)
   - Frame size and frame rate.
   
-- **Network Training**\
-  We use **Deeplabcut** for network training. Specifically, a single network is trained to track the key points of monkey hands from all camera views. (See [DLC_traning_Yiting](DLC_traning_Yiting.ipynb))
-  - We may want to improve the accuracy using different filters for temporal and spatial constraints. Or try pre-trained hand models. 
-  - Points of interests (Insert an labeled image)
   
-- **Triangulation and Plotting**
-  - Import DLC results (.csv) and labeled videos.\
-    \
-    Data structure:
-    - Project/Animal/Session Folder
-      - Trial_N
-          - Trial_N_cam12345678_DLC.csv
-          - Trial_N_cam23456789_DLC.csv
-
-  - [Triangulation and plotting](Triangulation_and_Plotting.ipynb) 
 
