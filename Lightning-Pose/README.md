@@ -1,4 +1,10 @@
-Workflow for Lightning Pose\
+# Workflow for Lightning Pose
+
+## Installation
+1. Lightning Pose can be installed as a Python package on Linux.
+2. Alternatively, create a Lightning.ai account to access Lightning Studio, a cloud-based environment with Lightning Pose installed.
+
+Reference: https://lightning-pose.readthedocs.io/en/latest/source/installation.html
 
 ## Dataset preparation
 Use DLC or JARVIS for annotation
