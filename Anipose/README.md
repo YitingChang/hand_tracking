@@ -22,20 +22,20 @@ We convert the 2d outputs of Lightning pose (.csv) to the inputs of Anipose (.h5
 
 ## Data structure
 ### Inputs
-...experiment/config.toml
+...experiment/config.toml \
 ...experiment/session1/trial1/calibration_videos/cal_camA.mp4 \
 ...experiment/session1/trial1/calibration_videos/cal_camB.mp4 \
 ...experiment/session1/trial1/videos_raw/vid_camA.mp4 \
-...experiment/session1/trial1/videos_raw/vid_camB.mp4
-...experiment/session1/trial1/LP_pose_2d/vid_camA.h5
-...experiment/session1/trial1/LP_pose_2d/vid_camB.h5
+...experiment/session1/trial1/videos_raw/vid_camB.mp4 \
+...experiment/session1/trial1/LP_pose_2d/vid_camA.h5 \
+...experiment/session1/trial1/LP_pose_2d/vid_camB.h5 
 
 
 ### Outputs
-...experiment/session1/trial1/calibration_results/calibration.toml
-...experiment/session1/trial1/pose_3d/vid.csv
-...experiment/session1/trial1/videos_labeled_3d/vid.mp4
-...experiment/session1/trial1/videos_combined/vid.mp4
+...experiment/session1/trial1/calibration_results/calibration.toml \
+...experiment/session1/trial1/pose_3d/vid.csv \
+...experiment/session1/trial1/videos_labeled_3d/vid.mp4 \
+...experiment/session1/trial1/videos_combined/vid.mp4 
 
 
 
