@@ -70,7 +70,12 @@ Please see the instructions in the Jarvis and Anipose folders.
   - Example videos from 6 camera views \
  [![Watch the video](examples/2024-04-15_10-36-24_969748_resized5.jpg)](examples/2024-04-15_10-36-24_969748_resized5.mp4)
 
+
   
+
+https://github.com/user-attachments/assets/5e2513ca-1f09-4579-879f-0c026e010f69
+
+
   
   
 
