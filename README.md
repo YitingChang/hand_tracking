@@ -67,8 +67,12 @@ Please see the instructions in the Jarvis and Anipose folders.
   - Cameras are set up to cover all key points of monkey hand, and each key point is viewed by at least 2 cameras.
   - Synchronize multiple cameras. (See [hardware-triggered cameras](https://github.com/williamsnider/nidaq))
   - Save videos from multiple hardware-triggered cameras(See [FLIR_multi_cam](https://github.com/williamsnider/FLIR_multi_cam))
+<<<<<<< HEAD
   - Example videos from 6 camera views \
  [![Watch the video](examples/2024-04-15_10-36-24_969748_resized5.jpg)](examples/2024-04-15_10-36-24_969748_resized5.mp4)
+=======
+  - Example videos from 6 camera views 
+>>>>>>> e16944a615ef5a51512a6a3b79c30c69f46bb223
 
   
   
