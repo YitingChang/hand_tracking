@@ -69,8 +69,6 @@ Please see the instructions in the Jarvis and Anipose folders.
   - Save videos from multiple hardware-triggered cameras(See [FLIR_multi_cam](https://github.com/williamsnider/FLIR_multi_cam))
   - Example videos from 6 camera views 
 
-https://github.com/user-attachments/assets/614a34dc-d53f-47c3-9ada-10cccca0931f
-
 
 
 
