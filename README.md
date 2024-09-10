@@ -72,6 +72,10 @@ Please see the instructions in the Jarvis and Anipose folders.
 <video src="examples/2024-04-15_10-36-24_969748_resized10.mp4">
 
 
+https://github.com/user-attachments/assets/614a34dc-d53f-47c3-9ada-10cccca0931f
+
+
+
   
   
   
