@@ -227,12 +227,19 @@ def process_trial(config, session_name, trial_name, filtered=False):
 
     video_ext = config['video_extension']
 
-    vid_fnames = glob(os.path.join(pipeline_data_dir, session_name,
-                                       "cameras", trial_name, "*."+video_ext))
+    parent_dir = os.path.join(pipeline_data_dir, session_name, "cameras")
+    whole_trial_name = [name for name in os.listdir(parent_dir)
+    if os.path.isdir(os.path.join(parent_dir, name)) and trial_name in name]
+
+    if len(whole_trial_name) > 1: # If multiple trials contain the same trial_name
+        print(f"Multiple trials found for {trial_name}")
+        return
+    else:
+        vid_fnames = glob(os.path.join(pipeline_data_dir, session_name,
+                                        "cameras", whole_trial_name[0], "*."+video_ext))
 
     if len(labels_fname) > 0:
         os.makedirs(outdir, exist_ok=True)
-
 
     if os.path.exists(out_fname) and \
         abs(get_nframes(out_fname) - get_data_length(labels_fname)) < 100:
