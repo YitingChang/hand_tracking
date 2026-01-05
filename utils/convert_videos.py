@@ -47,14 +47,14 @@ def get_videos(jarvis_dir, lp_dir, src_vid_dir):
 
     for t in trials:
         trialname_parts = t.split('_')
-        cameras = os.listdir(os.path.join(src_vid_dir,trialname_parts[0], t))
+        cameras = os.listdir(os.path.join(src_vid_dir,trialname_parts[0], 'cameras', t))
         for c in cameras:
             vidname_new = trialname_parts[0] + 'T' + trialname_parts[1] + '_' + c
             # Check video format and reencode video (if needed)
-            if check_codec_format(os.path.join(src_vid_dir, t, c)):
-                shutil.copy(os.path.join(src_vid_dir, trialname_parts[0], t, c), os.path.join(lp_dir, 'videos', vidname_new))
+            if check_codec_format(os.path.join(src_vid_dir, trialname_parts[0], 'cameras', t, c)):
+                shutil.copy(os.path.join(src_vid_dir, trialname_parts[0], 'cameras', t, c), os.path.join(lp_dir, 'videos', vidname_new))
             else:
-                reencode_video(os.path.join(src_vid_dir, trialname_parts[0], t, c), os.path.join(lp_dir, 'videos', vidname_new))
+                reencode_video(os.path.join(src_vid_dir, trialname_parts[0], 'cameras', t, c), os.path.join(lp_dir, 'videos', vidname_new))
 
 
 

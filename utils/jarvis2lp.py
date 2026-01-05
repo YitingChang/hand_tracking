@@ -120,6 +120,26 @@ def J2LP_mulview(jarvis_dir:str, lp_dir:str):
         # Save concatenated labels for each camera view
         df_all.to_csv(os.path.join(lp_dir, c + ".csv"))
 
+def J2LP_sigview_multisession(jarvis_annotations_list:list, lp_dir:str):
+    dfs = []
+    for jarvis_dir in jarvis_annotations_list:
+        # Find trial folders in JARVIS labeled dataset 
+        trials = [filename for filename in os.listdir(jarvis_dir) if contains_subdirectory(os.path.join(jarvis_dir,filename))]
+        trials.sort()
+        for t in trials:
+            # Get camera view names
+            cameras = os.listdir(os.path.join(jarvis_dir, t))
+            for c in cameras:
+                csv_file = glob.glob(os.path.join(jarvis_dir, t, c, "annotations.csv"))[0]
+                df_tmp = J2LP_csv(csv_file, t, c)
+                df_tmp.to_csv(os.path.join(jarvis_dir,t,c, "CollectedData.csv"), header = False)
+                df = pd.read_csv(os.path.join(jarvis_dir,t,c, "CollectedData.csv"), header = [0,1,2], index_col=0)
+                dfs.append(df)
+    df_all = pd.concat(dfs)  
+
+    os.makedirs(lp_dir, exist_ok=True)
+    # Save concatenated labels
+    df_all.to_csv(os.path.join(lp_dir, "CollectedData.csv"))
 
 def get_contextframes(lp_dir, context_range):
     videos = os.listdir(os.path.join(lp_dir, "videos"))
