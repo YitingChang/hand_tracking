@@ -1,0 +1,26 @@
+# .gitignore
+# Python
+__pycache__/
+*.egg-info/
+*.py[cod]
+.venv/
+.env
+
+# Data (Never commit large data to git)
+data/
+outputs/
+
+# Tool specific configs/outputs that are large
+models/
+*.ckpt
+*.h5
+lightning_logs/
+
+# Old scripts and notebooks
+_old/
+
+# IDE settings
+.vscode/
+.DS_Store
+
+

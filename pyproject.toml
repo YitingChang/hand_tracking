@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hand_tracker"
+version = "0.1.0"
+description = "Pipeline for hand tracking using Jarvis, Lightning Pose, Anipose, and OpenSim"
+authors = [{name = "Yiting Chang"}]
+dependencies = [
+    "numpy",
+    "pandas",
+    # Add other core dependencies here
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
