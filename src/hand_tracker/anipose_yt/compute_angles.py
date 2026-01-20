@@ -158,7 +158,9 @@ def compute_angles(config, labels_fname, outname):
     outdict['fnum'] = data['fnum']
     
     dout = pd.DataFrame(outdict)
-    dout.to_csv(outname, index=False)
+    dout.to_csv(outname, index=False) 
+
+    return dout
 
 
 def process_session(config, session_path):

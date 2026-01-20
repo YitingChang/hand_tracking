@@ -15,7 +15,9 @@ import shutil
 import toml
 import argparse
 
+from hand_tracker.inference.filter_obj import process_trial as filterobj_process
 from hand_tracker.utils.file_io import load_litpose_config
+from hand_tracker.triangulation.lp2anipose import get_trial_names
 from hand_tracker.triangulation.lp2anipose import lp2anipose_session
 from hand_tracker.anipose_yt.triangulate import process_trial as triangulate_process
 from hand_tracker.anipose_yt.filter_pose import process_trial as filter2d_process
@@ -50,18 +52,29 @@ def main(session_name, analysis_dir):
     ap_config_path = ap_dir / AP_CONFIG_NAME
     ap_config = toml.load(ap_config_path)
 
-    # 1. Move litpose outputs from the litpose root folder to the analysis session folder
+    # # 1. Move litpose outputs from the litpose root folder to the analysis session folder
 
-    lp_model_dir = Path(lp_config["eval"]["hydra_paths"][0])
-    lp_preds_source_dir = lp_model_dir / "video_preds"
+    # lp_model_dir = Path(lp_config["eval"]["hydra_paths"][0])
+    # lp_preds_source_dir = lp_model_dir / "video_preds"
+    # lp_2d_dir = lp_dir / "video_preds"
+    # move_lp_preds(lp_preds_source_dir, lp_2d_dir)
+
+    # 1. Filter Lightning pose 2d outputs
     lp_2d_dir = lp_dir / "video_preds"
-    move_lp_preds(lp_preds_source_dir, lp_2d_dir)
+    lp_2d_filter_dir = lp_dir / "lp_2d_filter"
+    os.makedirs(lp_2d_filter_dir, exist_ok=True)
+
+    trials = sorted(get_trial_names(lp_2d_dir))
+
+    for t in trials:
+        filterobj_process(trial_name=t, lp_2d_dir=lp_2d_dir, lp_2d_filter_dir=lp_2d_filter_dir)
+
 
     # 2. Convert Lightning pose 2d outputs (.csv) to Anipose inputs (.hdf)
     ap_2d_dir = ap_dir / "pose_2d"
     os.makedirs(ap_2d_dir, exist_ok = True)
-    lp2anipose_session(lp_2d_dir, ap_2d_dir, CAMERA_VIEWS)
-    trials = sorted(os.listdir(ap_2d_dir))
+    lp2anipose_session(lp_2d_filter_dir, ap_2d_dir, CAMERA_VIEWS)
+    # trials = sorted(os.listdir(ap_2d_dir))
 
     # 3. Filter 2D data
     if ap_config['filter']['enabled']:

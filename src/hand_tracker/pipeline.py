@@ -16,7 +16,7 @@ ENV_PATHS = {
     "training":      "/home/yiting/anaconda3/envs/litpose/bin/python",
     "inference":     "/home/yiting/anaconda3/envs/litpose/bin/python",      
     "triangulation": "/home/yiting/anaconda3/envs/anipose/bin/python", 
-    "kinematics":    "/home/yiting/anaconda3/envs/opensim/bin/python" # placeholder
+    "kinematics":    "/home/yiting/anaconda3/envs/hand-trk/bin/python"
 }
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -26,7 +26,7 @@ SCRIPT_PATHS = {
     "training":      PACKAGE_ROOT / "modeling" / "lp_runner.py",
     "inference":     LP_ROOT / "scripts" / "predict_new_vids.py",
     "triangulation": PACKAGE_ROOT / "triangulation" / "anipose_runner.py",
-    "kinematics":    PACKAGE_ROOT / "kinematics" / "opensim_adapter.py" # placeholder
+    "kinematics":    PACKAGE_ROOT / "kinematics" / "feature_extractor.py"
 }
 
 def run_step(step_name, extra_args, session_name=None):
@@ -69,6 +69,10 @@ def run_step(step_name, extra_args, session_name=None):
     elif step_name == "triangulation":    
         cmd.extend(["--analysis_dir", str(ANALYSIS_ROOT)])
         cmd.extend(extra_args)
+        
+    elif step_name == "kinematics":
+        cmd.extend(["--analysis_dir", str(ANALYSIS_ROOT)])
+        cmd.extend(extra_args)
     else:
         # For other steps, just pass whatever the user typed
         cmd.extend(extra_args)
@@ -86,7 +90,7 @@ def main():
     
     # 2. Added 'inference' to choices
     parser.add_argument("--stage", 
-                        choices=["preprocess", "train", "inference", "triangulate", "ik", "all"], 
+                        choices=["preprocess", "train", "inference", "triangulate", "kinematics", "all"], 
                         required=True)
     
     # 3. Explicitly parse session here so we can use it for path building
@@ -117,7 +121,7 @@ def main():
     if args.stage == "triangulate" or args.stage == "all":
         run_step("triangulation", pass_through_args)
 
-    if args.stage == "ik" or args.stage == "all":
+    if args.stage == "kinematics" or args.stage == "all":
         run_step("kinematics", pass_through_args)
 
 if __name__ == "__main__":

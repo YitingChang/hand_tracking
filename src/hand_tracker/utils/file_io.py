@@ -22,7 +22,17 @@ def get_trialname(file_path):
     filename_parts = filename.split('_')
     trialname = f"{filename_parts[0]}_{filename_parts[1]}"
     return trialname
-    
+
+def get_trialnames(folder_dir):
+    trial_names = []
+    filenames = [filename for filename in os.listdir(folder_dir)]
+    for f in filenames:
+        filename_parts = f.split('_')
+        trial_name = filename_parts[0] + "_" + filename_parts[1]
+        trial_names = trial_names + [trial_name]
+    trial_names = sorted(trial_names)
+    return trial_names
+
 def load_log_trials(log_trials):
     logs = []
     for log_file in log_trials:
