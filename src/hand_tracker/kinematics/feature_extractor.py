@@ -1,6 +1,9 @@
 # Feature extraction
-# 1. Angles
-# 2. Hand orientation
+# 1. Coordinates
+# 2. Angles
+# 3. Hand orientation
+# 4. Hand and object distance and angle
+
 import os
 from pathlib import Path
 import toml
@@ -22,6 +25,9 @@ HAND_KEYPOINTS = ["Small_Tip", "Small_DIP", "Small_PIP", "Small_MCP",
                   "Thumb_Tip", "Thumb_IP", "Thumb_MCP" ,"Thumb_CMC", 
                   "Palm", "Wrist_U","Wrist_R"]
 
+OBJECT_KEYPOINTS = ["Dot_t1", "Dot_t2", "Dot_t3", "Dot_b1", "Dot_b2", "Dot_b3", 
+                    "Dot_l1", "Dot_l2", "Dot_l3", "Dot_r1", "Dot_r2", "Dot_r3"]
+
 AP_CONFIG_NAME = "config.toml"
 
 
@@ -40,6 +46,9 @@ def main(session_name, analysis_dir):
         pose_3d_dir = ap_dir / "pose_3d"
     pose_3d_files = sorted(os.listdir(pose_3d_dir))
 
+    angle_dir = ap_dir / ap_config['pipeline']['angles']
+    os.makedirs(angle_dir, exist_ok = True)
+
     feature_dir = analysis_dir / session_name / "features"
     os.makedirs(feature_dir, exist_ok = True)
 
@@ -56,11 +65,11 @@ def main(session_name, analysis_dir):
                                 [f"{hp}_z" for hp in HAND_KEYPOINTS]]
 
         # 2. Compute Angles
-        angle_out_fname = os.path.join(ap_dir, ap_config['pipeline']['angles'], trial_name + '_angles.csv')
+        angle_out_fname = os.path.join(angle_dir, trial_name + '_angles.csv')
         angle_df = compute_angles(ap_config, pose_3d_path, angle_out_fname)
 
         # 3. Compute Hand Orientations
-        normals = orientation_process(pose_3d_dir, pose_3d_file)
+        normals, hand_obj_angles = orientation_process(pose_3d_dir, pose_3d_file)
 
         # 5. Combine features (coordinates, angles, hand orientations)  
         feature_df = pose_3d_df.copy()
@@ -68,6 +77,7 @@ def main(session_name, analysis_dir):
         feature_df["normal_x"] = normals[:,0]
         feature_df["normal_y"] = normals[:,1]
         feature_df["normal_z"] = normals[:,2]
+        feature_df["hand_obj_angle"] = hand_obj_angles
 
         # 6. Save 
         out_fname = os.path.join(feature_dir, trial_name + '_features.csv')
