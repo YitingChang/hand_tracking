@@ -1,4 +1,5 @@
 import os
+from glob import glob
 import pandas as pd
 from datetime import datetime, timedelta
 import json
@@ -78,4 +79,53 @@ def add_video_path(video_folder_paths, logs):
     # 4. Add the video folder names to the logs DataFrame
     logs["video_folder_name"] = video_folder_names
     return logs
+
+def find_matching_log(filenames, log_dir):
+    """
+    Finds the corresponding log file for a list of video/csv filenames,
+    allowing for a +/- 1 second difference in timestamps.
+    """
+    matched_log_fnames = ["nan"] * len(filenames)
+    
+    # Get all log files from the directory
+    log_fnames = glob(os.path.join(log_dir, "*.json"))
+
+    for idx, fname in enumerate(filenames):
+        # 0. Get trial name (timestamp string) from file name
+        trialname = get_trialname(fname)
+
+        try:
+            # 1. Extract the timestamp part from the trial name
+            # Parse it into a datetime object
+            ts = datetime.strptime(trialname, "%Y-%m-%d_%H-%M-%S")
+
+            # Shift by +1 second and -1 second
+            ts_plus = ts + timedelta(seconds=1)
+            ts_minus = ts - timedelta(seconds=1)
+
+            # Convert back to the same string format
+            ts_plus_str = ts_plus.strftime("%Y-%m-%d_%H-%M-%S")
+            ts_minus_str = ts_minus.strftime("%Y-%m-%d_%H-%M-%S")
+
+            # 2. Search for matching log file names
+            # We look for the timestamp in the basename of the log file
+            matches = [
+                l for l in log_fnames 
+                if trialname in os.path.basename(l) 
+                or ts_plus_str in os.path.basename(l) 
+                or ts_minus_str in os.path.basename(l)
+            ]
+
+            if len(matches) > 1:
+                print(f"Warning: Multiple matches found for trial {trialname}: {matches}")
+            elif len(matches) == 1:
+                # 3. Assign the found log file path
+                matched_log_fnames[idx] = matches[0]
+                
+        except ValueError:
+            print(f"Skipping {fname}: Could not parse timestamp from '{trialname}'")
+            continue
+
+    return matched_log_fnames
+
 
