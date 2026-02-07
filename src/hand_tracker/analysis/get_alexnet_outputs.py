@@ -128,7 +128,9 @@ def main():
     
     # 3. Save
     df = pd.DataFrame(tsne_results, columns=['TSNE1', 'TSNE2'])
+    df['shape_type'] = [os.path.basename(p).split('_')[0] for p in final_paths]
     df['OriginalPath'] = [os.path.join(IMAGE_DIR, os.path.basename(p)) for p in final_paths]
+    df['ProcessedPath'] = final_paths
     df.to_csv(OUTPUT_CSV, index=False)
     print(f"Done! Results saved to {OUTPUT_CSV}")
 

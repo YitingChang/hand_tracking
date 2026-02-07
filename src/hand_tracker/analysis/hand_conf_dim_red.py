@@ -10,19 +10,21 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import shap
-import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import seaborn as sns
 from hand_tracker.utils.file_io import get_trialname, find_matching_log
 
 # ------ CONFIGURATION ------
 RAW_DATA_ROOT = Path("/media/yiting/NewVolume/Data/Videos")
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
+SAVE_ROOT = os.path.join(ANALYSIS_ROOT, "hand_conf_dim_red")
+# Parameters
 FRAME_NUMBER = 300
 TSNE_PERPLEXITY = 30
 NUM_CLUSTER = 4
-SAVE_ROOT = os.path.join(ANALYSIS_ROOT, "hand_conformation")
-TRIAL_TYPE = "correct" # "all", "correct", "correct-long", "correct-short"
+TRIAL_TYPE = "correct-short" # "all", "correct", "correct-long", "correct-short"
+# ---------------------------   
 
 def get_feature_log(feature_dir, feature_fnames, log_dir, log_fnames):
     """
@@ -68,6 +70,27 @@ def get_feature_log(feature_dir, feature_fnames, log_dir, log_fnames):
         df = pd.DataFrame()
 
     return df, feature_names
+
+def get_shape_analysis(df):
+    '''
+    Load shape tsne results and map shape_type to tsne-d1 order
+    '''
+    # Load shape analysis results
+    df_shape = pd.read_csv(SHAPE_ANALYSIS_PATH)
+
+    for row_idx, row in df.iterrows():
+        shape_type_trial = row['shape_type']
+        shape_tsne_d1 = df_shape.loc[df_shape['shape_type'] == shape_type_trial, 'TSNE1'].values
+        shape_tsne_d2 = df_shape.loc[df_shape['shape_type'] == shape_type_trial, 'TSNE2'].values
+        if shape_tsne_d1.size > 0:
+            df.at[row_idx, 'shape_tsne-d1'] = shape_tsne_d1[0]
+        else:
+            df.at[row_idx, 'shape_tsne-d1'] = np.nan
+        if shape_tsne_d2.size > 0:
+            df.at[row_idx, 'shape_tsne-d2'] = shape_tsne_d2[0]
+        else:
+            df.at[row_idx, 'shape_tsne-d2'] = np.nan
+    return df
 
 def compute_tsne_pca(df, feature_names, trial_type=None):
     # Filter trials
@@ -123,122 +146,160 @@ def compute_tsne_pca(df, feature_names, trial_type=None):
     
     return df_sorted, X_scaled, tsne_features, principal_components
 
-def plot_dim_red(df, method="tsne"):
-
+def plot_dim_red(df, method="tsne", color_by=None):
+    # ---- Setup Filenames ----
     if method == "tsne":
         dim1 = 'tsne-d1'
         dim2 = 'tsne-d2'
-        save_fname = f"hand_conf_{TRIAL_TYPE}_f{FRAME_NUMBER}_{method}_perplexity{TSNE_PERPLEXITY}.png"
+        base_name = f"hand_conf_{TRIAL_TYPE}_f{FRAME_NUMBER}_{method}_perplexity{TSNE_PERPLEXITY}"
     elif method == "pca":
         dim1 = 'pca-d1'
         dim2 = 'pca-d2'
-        save_fname = f"hand_conf_{TRIAL_TYPE}_f{FRAME_NUMBER}_{method}.png"
+        base_name = f"hand_conf_{TRIAL_TYPE}_f{FRAME_NUMBER}_{method}"
 
-    fig, ax = plt.subplots(figsize=(10, 8))
+    save_fname = f"{base_name}_{color_by}.png" if color_by else f"{base_name}.png"
 
-    # ---- Color mapping (shape_type) ----
+    # Create figure
+    fig, ax = plt.subplots(figsize=(16, 16))
+
+    # ---- 1. Color Mapping Logic ----
+    df = get_shape_analysis(df)
     shape_types = sorted(df['shape_type'].unique())
-    cmap = plt.get_cmap('Spectral')
     
-    # Avoid division by zero if only 1 shape type
-    if len(shape_types) > 1:
-        color_map = {st: cmap(i / (len(shape_types) - 1)) for i, st in enumerate(shape_types)}
-    else:
-        color_map = {shape_types[0]: cmap(0.5)}
+    # Check if we are doing continuous coloring
+    is_continuous = color_by in ["shape_tsne1", "shape_tsne2"]
+    
+    if is_continuous:
+        target_col = 'shape_tsne-d1' if color_by == "shape_tsne1" else 'shape_tsne-d2'
+        cmap = plt.get_cmap('viridis')
+        
+        vmin, vmax = df[target_col].min(), df[target_col].max()
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        
+        color_map = {}
+        for st in shape_types:
+            val = df.loc[df['shape_type'] == st, target_col].mean()
+            color_map[st] = cmap(norm(val))
+            
+    else: 
+        # Default: Categorical coloring (Spectral)
+        # With 622 shapes, we use a cyclical colormap or high-contrast map, 
+        # though duplicates will occur.
+        cmap = plt.get_cmap('Spectral') 
+        if len(shape_types) > 1:
+            color_map = {st: cmap(i / (len(shape_types) - 1)) for i, st in enumerate(shape_types)}
+        else:
+            color_map = {shape_types[0]: cmap(0.5)}
 
-    # ---- Marker mapping (orientation) ----
-    marker_map = {
-        "0": "o",      # circle
-        "2": "D",      # diamond
-        "02": "*",     # star
-    }
-    # Default to 'o' if orientation not in map
+    # ---- 2. Marker & Edge Logic ----
+    marker_map = {"0": "o", "2": "D", "02": "*"}
     df['marker'] = df['orientation'].astype(str).map(lambda x: marker_map.get(x, "o"))
 
-    # ---- Edge mapping ----
-    
+    # Edge Logic
+    edge_label_map = {}
     if TRIAL_TYPE == "all":
-        # For all trials, edge mapping is correct vs error
-        edge_map = {
-            True: 'none',
-            False: 'black'
-        }
-        df['edgecolor'] = df['correct'].map(edge_map)
-
+        edge_color_map = {True: 'silver', False: 'black'}
+        edge_label_map = {True: 'Correct', False: 'Error'}
+        df['edgecolor'] = df['correct'].map(edge_color_map)
     elif TRIAL_TYPE == "correct":
-        # For correct trials, edge mapping is long vs short
-        edge_map = {
-            True: 'none',
-            False: 'black'
-        }
-        df['edgecolor'] = df['is_holdlong'].map(edge_map)
+        edge_color_map = {True: 'black', False: 'silver'}
+        edge_label_map = {True: 'Long', False: 'Short'}
+        df['edgecolor'] = df['is_holdlong'].map(edge_color_map)
+    else:
+        df['edgecolor'] = 'silver'
 
-
-    # ---- Plot grouped by color + marker + edge ----
+    # ---- Plotting ----
+    # Iterate through shapes to plot
     for st in shape_types:
         sub = df[df['shape_type'] == st]
         for m in sub['marker'].unique():
             tmp = sub[sub['marker'] == m]
-            # Ensure we have data to plot
             if tmp.empty: continue
             
             ax.scatter(
                 tmp[dim1], tmp[dim2],
-                color=color_map[st],
+                c=[color_map[st]] * len(tmp),
                 marker=m,
                 s=30,
+                linewidths=0.5,
                 edgecolors=tmp['edgecolor'],
-                label=f"{st}, {m}"
+                alpha=0.8,
+                label=f"{st}"
             )
 
-    ax.set_title(f"Hand_conformation_{TRIAL_TYPE}_f{FRAME_NUMBER}")
-    ax.set_xlabel(dim1)
-    ax.set_ylabel(dim2)
-    plt.tight_layout()
+    ax.set_title(f"Hand_conformation_{TRIAL_TYPE}_f{FRAME_NUMBER}\nColor: {color_by if color_by else 'ShapeType'}", fontsize=14)
+    ax.set_xlabel(dim1, fontsize=12)
+    ax.set_ylabel(dim2, fontsize=12)
 
-    # ---- Legends ----
-    color_handles = [
-        plt.Line2D([0], [0], marker='o', color='w',
-                markerfacecolor=color_map[st], markersize=8,
-                label=str(st))
-        for st in shape_types
-    ]
+    # ---- Legends / Colorbar ----
+    
+    # A. Handle Color Legend
+    if is_continuous:
+        # Continuous -> Colorbar
+        cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.04)
+        cbar.set_label(f"Value: {color_by}", fontsize=10)
+    else:
+        # Discrete -> Check count
+        if len(shape_types) > 20:
+            # TOO MANY SHAPES: Do NOT plot shape legend
+            print(f"Skipping shape legend (n={len(shape_types)} types)")
+        else:
+            color_handles = [
+                plt.Line2D([0], [0], marker='o', color='w',
+                           markerfacecolor=color_map[st], markersize=8,
+                           label=str(st))
+                for st in shape_types
+            ]
+            leg1 = ax.legend(handles=color_handles, title='Shape Type',
+                             loc='upper center', bbox_to_anchor=(0.5, -0.15),
+                             ncol=8, fontsize='small', title_fontsize='small',
+                             markerscale=0.7, frameon=False)
+            ax.add_artist(leg1)
 
+    # B. Marker & Edge Legends (Bottom Row)
     marker_handles = [
         plt.Line2D([0], [0], marker=m, color='k', linestyle='',
-                markersize=8, label=ori)
-        for ori, m in marker_map.items() if ori in df['orientation'].unique()
+                   markersize=8, label=ori)
+        for ori, m in marker_map.items() if str(ori) in df['orientation'].astype(str).unique()
     ]
 
-    if TRIAL_TYPE == "all":
-        edge_handles = [
-            plt.Line2D([0], [0], marker='o', color='w',
-                    markerfacecolor='gray', markeredgecolor=ec, markersize=8,
-                    label='error' if ec == 'black' else 'correct')
-            for ec in edge_map.values()
-        ]
-    elif TRIAL_TYPE == "correct":
-        edge_handles = [
-            plt.Line2D([0], [0], marker='o', color='w',
-                    markerfacecolor='gray', markeredgecolor=ec, markersize=8,
-                    label='short' if ec == 'black' else 'long')
-            for ec in edge_map.values()
-        ]
+    edge_handles = []
+    if edge_label_map:
+        for key, label_text in edge_label_map.items():
+            ec = edge_color_map[key]
+            edge_handles.append(
+                plt.Line2D([0], [0], marker='o', color='w',
+                           markerfacecolor='white', markeredgecolor=ec, markeredgewidth=2, markersize=8,
+                           label=label_text)
+            )
 
-    leg1 = ax.legend(handles=color_handles, title='shape_type',
-                    loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=8)
-    ax.add_artist(leg1)
+    # Calculate positions
+    # If we skipped the shape legend, we can put the others higher up
+    has_shape_legend = (not is_continuous) and (len(shape_types) <= 20)
+    bottom_anchor_y = -0.15 if not has_shape_legend else -0.25
+    
+    if marker_handles:
+        leg2 = ax.legend(handles=marker_handles, title='Orientation',
+                         loc='upper center', bbox_to_anchor=(0.35, bottom_anchor_y), 
+                         ncol=len(marker_handles), fontsize='small', title_fontsize='small', frameon=False)
+        ax.add_artist(leg2)
 
-    leg2 = ax.legend(handles=marker_handles, title='orientation',
-            loc='upper center', bbox_to_anchor=(0.2, -0.075), ncol=5)
-    ax.add_artist(leg2)
+    if edge_handles:
+        title_text = "Trial Outcome" if TRIAL_TYPE == "all" else "Hold Type"
+        ax.legend(handles=edge_handles, title=title_text,
+                  loc='upper center', bbox_to_anchor=(0.65, bottom_anchor_y), 
+                  ncol=len(edge_handles), fontsize='small', title_fontsize='small', frameon=False)
 
-    ax.legend(handles=edge_handles, title='trial outcome',
-            loc='upper center', bbox_to_anchor=(0.8, -0.075), ncol=2)
-
+    # Adjust layout
+    # Less bottom padding needed if no shape legend
+    plt.subplots_adjust(bottom=0.2 if not has_shape_legend else 0.3, right=0.9)
+    
     save_path = os.path.join(SAVE_ROOT, save_fname)
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.close() 
+    plt.savefig(save_path, dpi=600, bbox_inches='tight')
+    plt.close()
+    print(f"Saved plot to: {save_path}")
 
 def get_feature_contribution(X_scaled, tsne_features, feature_names):
     # Train a Surrogate Model (Random Forest)
@@ -360,17 +421,19 @@ def main():
 
     # Plot tSNE and PCA
     plot_dim_red(df_tsne_pca, method="tsne")
+    plot_dim_red(df_tsne_pca, method="tsne", color_by="shape_tsne1")
+    plot_dim_red(df_tsne_pca, method="tsne", color_by="shape_tsne2")
     plot_dim_red(df_tsne_pca, method="pca")
-
+    plot_dim_red(df_tsne_pca, method="pca", color_by="shape_tsne1")
+    plot_dim_red(df_tsne_pca, method="pca", color_by="shape_tsne2")
     # tSNE clustering analysis
     kmeans = KMeans(n_clusters=NUM_CLUSTER, random_state=42)
     df_tsne_pca['cluster'] = kmeans.fit_predict(tsne_features)
 
     # Save tSNE results
     df_tsne_pca.to_csv(os.path.join(SAVE_ROOT, f"hand_conf_{TRIAL_TYPE}_f{FRAME_NUMBER}_pca_tsne_perplexity{TSNE_PERPLEXITY}.csv"), index=False)
-
     # Get feature contribution
-    get_feature_contribution(X_scaled, tsne_features, feature_names)
+    # get_feature_contribution(X_scaled, tsne_features, feature_names)
 
 if __name__ == "__main__":
     main()
