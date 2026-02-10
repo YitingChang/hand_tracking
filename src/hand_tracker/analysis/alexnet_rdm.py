@@ -1,114 +1,121 @@
 import os
 from pathlib import Path
-import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
-from torchvision import models, transforms
+import torchvision.models as models
+import torchvision.transforms as transforms
 from PIL import Image
-from glob import glob
-from tqdm import tqdm
-import pickle
+import numpy as np
+import pandas as pd
 from scipy.spatial.distance import pdist, squareform
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-
+from tqdm import tqdm
+from glob import glob
+import pickle
 
 # --- CONFIGURATION ---
+DATA_ROOT = Path("/media/yiting/NewVolume/Data")
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
-IMAGE_DIR = Path("/media/yiting/NewVolume/Data/Shapes/shapes_2026")
-PROCESSED_DIR = Path("/media/yiting/NewVolume/Data/Shapes/shapes_2026_alexnet_preprocessed")
-SHAPE_RDM_SAVE_DIR = Path("/media/yiting/NewVolume/Analysis/shape_analysis")
-SHAPE_ID_SAVE_PATH = os.path.join(SHAPE_RDM_SAVE_DIR, 'shape_ids.pkl')
-HAND_RDM_SAVE_DIR = os.path.join(ANALYSIS_ROOT, "hand_analysis")
+IMAGE_DIR = DATA_ROOT / "Shapes" / "shapes_6views"
+SHAPE_RDM_SAVE_DIR = ANALYSIS_ROOT / "shape_analysis" / "shape_rdms"
+HAND_RDM_SAVE_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_rdms"
+IMAGE_TYPE = 'rgb'  # Options: 'rgb' or 'depth'
+VIEW_ORDER = ['Front', 'Back', 'Left', 'Right', 'Top', 'Bottom']
 
-# Crop logic (top-left origin)
-# PIL Crop: (left, top, right, bottom)
-CROP_COORDS = (75, 250, 550, 725) 
+TRIAL_TYPE = "correct" 
+ORIENTATION = ['02', '0', '2'] 
 
-def preprocess_all_images(input_dir, output_dir):
-    """ Clean, crop, and save images locally."""
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+os.makedirs(SHAPE_RDM_SAVE_DIR, exist_ok=True)
+
+class FeatureExtractor:
+    def __init__(self, layer_name):
+        self.model = models.alexnet(weights=models.AlexNet_Weights.IMAGENET1K_V1).eval()
+        self.layer_name = layer_name
+        self.features = None
+        for name, module in self.model.named_modules():
+            if name == layer_name:
+                module.register_forward_hook(self.hook)
+        self.transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+
+    def hook(self, module, input, output):
+        self.features = output.detach().cpu().numpy().flatten()
+
+    def get_features(self, img_path):
+        img = Image.open(img_path).convert('RGB')
+        img_t = self.transform(img).unsqueeze(0)
+        with torch.no_grad(): self.model(img_t)
+        return self.features
+
+def extract_concatenated_shape_features(layer_id):
+    extractor = FeatureExtractor(layer_id)
     
-    paths = glob(os.path.join(input_dir, '*.png'))
+    # 1. Load valid IDs from CSV (e.g., A013_0, A013_2, A04_02, etc.)
+    hand_feat_csv = f"hand_avg_features_{TRIAL_TYPE}_ori{ORIENTATION[0]}.csv"
+    hand_feat_path = HAND_RDM_SAVE_DIR / hand_feat_csv
+    df_hand = pd.read_csv(hand_feat_path)
+    valid_ids = df_hand['shape_id'].astype(str).str.strip().unique().tolist()
     
-    # Define the transform for saving (no normalization yet)
-    pipe = transforms.Compose([
-        transforms.Lambda(lambda img: img.crop(CROP_COORDS)),
-        transforms.Grayscale(num_output_channels=1), # Save as 1-channel to save space
-    ])
+    # 2. Map Image Files to Base IDs
+    all_images = glob(os.path.join(IMAGE_DIR, f"*_{IMAGE_TYPE}.png"))
+    base_to_views = {}
+    for p in all_images:
+        fname = os.path.basename(p)
+        parts = fname.split('_')
+        base_id = parts[0] # "A013"
+        view = parts[1]    # "Front"
+        if base_id not in base_to_views: base_to_views[base_id] = {}
+        base_to_views[base_id][view] = p
 
-    print(f"Pre-processing {len(paths)} images...")
-    for path in tqdm(paths):
-        img = Image.open(path).convert('RGB')
-        processed = pipe(img)
-        processed.save(os.path.join(output_dir, os.path.basename(path)))
+    cache = {}
+    final_features = []
+    final_shape_ids = []
 
+    for full_id in tqdm(valid_ids, desc=f"Extracting {layer_id}"):
+        base_id = full_id.split('_')[0]
+        if base_id not in base_to_views: continue
+            
+        if base_id not in cache:
+            obj_views = []
+            first_feat = None
+            for view in VIEW_ORDER:
+                if view in base_to_views[base_id]:
+                    feat = extractor.get_features(base_to_views[base_id][view])
+                    obj_views.append(feat)
+                    if first_feat is None: first_feat = feat
+                else: obj_views.append(None)
+            
+            if first_feat is not None:
+                feat_dim = len(first_feat)
+                obj_views = [f if f is not None else np.zeros(feat_dim) for f in obj_views]
+                cache[base_id] = np.concatenate(obj_views)
+        
+        if base_id in cache:
+            final_features.append(cache[base_id])
+            final_shape_ids.append(full_id)
 
-def extract_features(processed_dir, alexnet_layer='classifier.1'):
-    paths = sorted(glob(os.path.join(processed_dir, '*.png')))
-    # Extract base IDs (e.g., A013) from filenames (A013_0.png)
-    master_list = [os.path.basename(p).split('_')[0] for p in paths]
-    
-    model = models.alexnet(weights=models.AlexNet_Weights.IMAGENET1K_V1).eval()
-    activation = {}
-    def hook_fn(m, i, o): activation['feat'] = o.detach()
-    
-    layer_to_hook = dict([*model.named_modules()])[alexnet_layer]
-    layer_to_hook.register_forward_hook(hook_fn)
+    return np.array(final_features), final_shape_ids
 
-    model_pipe = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
-
-    features_list = []
-    for path in tqdm(paths, desc=f"Layer {alexnet_layer}"):
-        img = Image.open(path).convert('RGB')
-        tensor = model_pipe(img).unsqueeze(0)
-        model(tensor)
-        features_list.append(activation['feat'].numpy().flatten())
-    
-    return np.array(features_list), master_list
-
-def run_layer_hierarchy_analysis():
-    hand_data_path = os.path.join(HAND_RDM_SAVE_DIR, "hand_avg_features_correct.csv")
-    
-    if not os.path.exists(hand_data_path):
-        print(f"\nCRITICAL ERROR: {hand_data_path} not found.")
-        print("Please run 'hand_rdm.py' first to generate the trial averages.\n")
-        return
-    
-    # Load Hand shape_ids to ensure alignment
-    df_hand = pd.read_csv(hand_data_path).dropna()
-    valid_ids = df_hand['shape_id'].tolist()
-
-    target_layers = {'low': 'features.0', 'high': 'features.12', 'global': 'classifier.1'}
-    rdm_results = {}
+def compute_and_save_rdms():
+    target_layers = {'low': 'features.0', 'mid': 'features.10', 'high': 'classifier.1'}
+    results = {}
 
     for label, layer_id in target_layers.items():
-        feats, master_list = extract_features(PROCESSED_DIR, layer_id)
-        
-        # Align: For every 'A251_02' in valid_ids, find index of 'A251' in master_list
-        mapping_indices = [master_list.index(sid.split('_')[0]) for sid in valid_ids]
-        aligned_feats = feats[mapping_indices]
-        
-        # Compute RDM
-        scaler = StandardScaler()
-        feats_norm = scaler.fit_transform(aligned_feats)
-        rdm = squareform(pdist(feats_norm, metric='correlation'))
-        
-        rdm_results[label] = {'layer': layer_id, 'rdm': rdm}
-        
-    with open(os.path.join(SHAPE_RDM_SAVE_DIR, 'alexnet_rdms_aligned.pkl'), 'wb') as f:
-        pickle.dump(rdm_results, f)
-    print("AlexNet RDMs Aligned and Saved.")
+        features, shape_ids = extract_concatenated_shape_features(layer_id)
+        if len(features) == 0:
+            print(f"Warning: No features extracted for {label}. Skipping...")
+            continue
+            
+        print(f"Computing {label} RDM (Shape: {features.shape})...")
+        rdm_matrix = squareform(pdist(features, metric='correlation'))
+        results[label] = {'rdm': rdm_matrix, 'shape_ids': shape_ids, 'layer': layer_id}
+
+    save_path = os.path.join(SHAPE_RDM_SAVE_DIR, f'alexnet_rdms_concatenated_{IMAGE_TYPE}_{TRIAL_TYPE}_ori{ORIENTATION[0]}.pkl')
+    with open(save_path, 'wb') as f:
+        pickle.dump(results, f)
+    print(f"Done! Saved to {save_path}")
 
 if __name__ == "__main__":
-    # Step 1: Preprocess and save images (only need to run once)
-    # preprocess_all_images(IMAGE_DIR, PROCESSED_DIR)
-
-    # Step 2: Extract features and compute RDMs for each layer
-    run_layer_hierarchy_analysis()
+    compute_and_save_rdms()

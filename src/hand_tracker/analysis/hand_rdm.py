@@ -11,13 +11,13 @@ from hand_tracker.utils.file_io import get_trialname, find_matching_log
 # --- CONFIGURATION ---
 RAW_DATA_ROOT = Path("/media/yiting/NewVolume/Data/Videos")
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
-HAND_RDM_SAVE_DIR = os.path.join(ANALYSIS_ROOT, "hand_analysis")
-SHAPE_RDM_SAVE_DIR = os.path.join(ANALYSIS_ROOT, "shape_analysis")
-SHAPE_ID_SAVE_PATH = os.path.join(SHAPE_RDM_SAVE_DIR, 'shape_ids.pkl')
+HAND_RDM_SAVE_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_rdms"
+SHAPE_RDM_SAVE_DIR = ANALYSIS_ROOT / "shape_analysis" / "shape_rdms"
+SHAPE_ID_SAVE_PATH = ANALYSIS_ROOT / "shape_analysis" / 'shape_ids.pkl'
 
 FRAME_NUMBER = 300
 TRIAL_TYPE = "correct" 
-ORIENTATION = ['0', '2', '02'] 
+ORIENTATION = ['02', '0', '2'] 
 
 def get_feature_log(feature_dir, feature_fnames, log_dir, log_fnames):
     df_list = []
@@ -48,7 +48,8 @@ def get_feature_log(feature_dir, feature_fnames, log_dir, log_fnames):
 
 def main():
     os.makedirs(HAND_RDM_SAVE_DIR, exist_ok=True)
-    session_names = ["2025-08-19", "2025-08-22", "2025-11-20", "2025-12-08", "2025-12-09", "2025-12-18"]
+    session_names = ["2025-08-19", "2025-08-22", "2025-11-20",
+                      "2025-12-08", "2025-12-09", "2025-12-18"]
     
     df_all_list = []
     all_feature_names = []
@@ -101,10 +102,9 @@ def main():
     # Drop any shapes that ended up with NaNs before saving
     df_avg_ordered = df_avg_ordered.dropna().reset_index(drop=True)
 
-    # 4. SAVE THE CSV (Ensuring the filename is exact)
-    # We force the name to 'hand_avg_features_correct.csv' for the next script
-    save_filename = "hand_avg_features_correct.csv"
-    save_path = os.path.join(HAND_RDM_SAVE_DIR, save_filename)
+    # 4. SAVE THE CSV
+    save_name_csv = f"hand_avg_features_{TRIAL_TYPE}_ori{ORIENTATION[0]}.csv"
+    save_path = HAND_RDM_SAVE_DIR / save_name_csv
     df_avg_ordered.to_csv(save_path, index=False)
     
     print(f"Success! Saved {len(df_avg_ordered)} shapes to {save_path}")
@@ -117,8 +117,8 @@ def main():
     hand_rdm = squareform(pdist(hand_matrix, metric='correlation'))
     
     output = {'rdm': hand_rdm, 'shape_ids': df_avg_ordered['shape_id'].tolist(), 'trial_type': TRIAL_TYPE}
-    save_name = f"hand_rdm_{TRIAL_TYPE}_aligned.pkl"
-    with open(os.path.join(HAND_RDM_SAVE_DIR, save_name), 'wb') as f:
+    save_name_rdm = f"hand_rdms_{TRIAL_TYPE}_ori{ORIENTATION[0]}.pkl"
+    with open(HAND_RDM_SAVE_DIR / save_name_rdm, 'wb') as f:
         pickle.dump(output, f)
     print(f"Hand RDM saved for {len(output['shape_ids'])} conditions.")
 

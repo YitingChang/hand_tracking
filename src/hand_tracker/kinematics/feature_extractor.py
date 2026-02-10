@@ -8,8 +8,9 @@ import os
 from pathlib import Path
 import toml
 import argparse
+import numpy as np
 import pandas as pd
-
+from scipy.spatial.distance import pdist
 from hand_tracker.utils.file_io import get_trialname
 from hand_tracker.anipose_yt.compute_angles import compute_angles
 from hand_tracker.kinematics.hand_orientation import process_trial as orientation_process
@@ -28,8 +29,66 @@ HAND_KEYPOINTS = ["Small_Tip", "Small_DIP", "Small_PIP", "Small_MCP",
 OBJECT_KEYPOINTS = ["Dot_t1", "Dot_t2", "Dot_t3", "Dot_b1", "Dot_b2", "Dot_b3", 
                     "Dot_l1", "Dot_l2", "Dot_l3", "Dot_r1", "Dot_r2", "Dot_r3"]
 
+OBJECT_REF_KEYPOINT = ["Dot_t2"] # Reference point on the object for hand-object distance
+
 AP_CONFIG_NAME = "config.toml"
 
+def compute_relational_features(pose_3d_df):
+    """
+    Main wrapper to extract both types of relative features.
+    """
+    # 1. Hand-Object Distances (Vector of 23 features per trial)
+    df_hand_obj = compute_hand_object_distance(pose_3d_df)
+    
+    # 2. Hand Pairwise Distances (Vector of 253 features per trial)
+    df_hand_pair = compute_hand_pairwise_dist(pose_3d_df)
+    
+    # Combine them into a single feature matrix for the RDM
+    df_relational = pd.concat([df_hand_obj, df_hand_pair], axis=1)
+    return df_relational
+
+def compute_hand_object_distance(pose_3d_df):
+    """
+    Computes distance between hand keypoints and the object reference point.
+    """
+    # Vectorize for speed instead of nested loops
+    distances = []
+    # Reference object point
+    ref_x, ref_y, ref_z = f"{OBJECT_REF_KEYPOINT[0]}_x", f"{OBJECT_REF_KEYPOINT[0]}_y", f"{OBJECT_REF_KEYPOINT[0]}_z"
+    
+    for _, trial_row in pose_3d_df.iterrows():
+        opt = np.array([trial_row[ref_x], trial_row[ref_y], trial_row[ref_z]])
+        trial_dists = []
+        for hk in HAND_KEYPOINTS:
+            hpt = np.array([trial_row[f"{hk}_x"], trial_row[f"{hk}_y"], trial_row[f"{hk}_z"]])
+            trial_dists.append(np.linalg.norm(hpt - opt))
+        distances.append(trial_dists)
+
+    return pd.DataFrame(distances, columns=[f"dist_obj_{hk}" for hk in HAND_KEYPOINTS])
+
+def compute_hand_pairwise_dist(pose_3d_df):
+    """
+    Computes pairwise distance between all 23 hand keypoints.
+    This describes the 'conformation' or 'shape' of the hand regardless of position.
+    """
+    pairwise_feats = []
+    for _, trial_row in pose_3d_df.iterrows():
+        # Extract (23, 3) matrix of hand keypoints
+        hand_pts = []
+        for hk in HAND_KEYPOINTS:
+            hand_pts.append([trial_row[f"{hk}_x"], trial_row[f"{hk}_y"], trial_row[f"{hk}_z"]])
+        hand_pts = np.array(hand_pts)
+        
+        # pdist computes the upper triangle of the distance matrix
+        # For 23 points, this is (23*22)/2 = 253 distances
+        dists = pdist(hand_pts, metric='euclidean')
+        pairwise_feats.append(dists)
+        
+    # Create column names: e.g., 'pair_Wrist_R_Palm'
+    from itertools import combinations
+    col_names = [f"pair_{a}_{b}" for a, b in combinations(HAND_KEYPOINTS, 2)]
+    
+    return pd.DataFrame(pairwise_feats, columns=col_names)
 
 def main(session_name, analysis_dir):
 
@@ -58,11 +117,8 @@ def main(session_name, analysis_dir):
         pose_3d_df = pd.read_csv(pose_3d_path)
         trial_name = get_trialname(pose_3d_file)
 
-        # 1. Get Hand Coordinates
-        # Get coordinates of hand keypoints 
-        hand_df = pose_3d_df[[f"{hp}_x" for hp in HAND_KEYPOINTS] + 
-                                [f"{hp}_y" for hp in HAND_KEYPOINTS] + 
-                                [f"{hp}_z" for hp in HAND_KEYPOINTS]]
+        # 1. Calculate Keypoint Distances: pairwise distances between hand keypoints and hand-object distances
+        distance_df = compute_relational_features(pose_3d_df)
 
         # 2. Compute Angles
         angle_out_fname = os.path.join(angle_dir, trial_name + '_angles.csv')
@@ -73,7 +129,7 @@ def main(session_name, analysis_dir):
 
         # 5. Combine features (coordinates, angles, hand orientations)  
         feature_df = pose_3d_df.copy()
-        feature_df = pd.concat([hand_df, angle_df.iloc[:, :-1]], axis=1)
+        feature_df = pd.concat([distance_df, angle_df.iloc[:, :-1]], axis=1)
         feature_df["normal_x"] = normals[:,0]
         feature_df["normal_y"] = normals[:,1]
         feature_df["normal_z"] = normals[:,2]

@@ -1,12 +1,24 @@
 import pickle
 import os
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 
 # Paths
-HAND_PATH = "/media/yiting/NewVolume/Analysis/hand_analysis/hand_rdm_correct_aligned.pkl"
-ALEX_PATH = "/media/yiting/NewVolume/Analysis/shape_analysis/alexnet_rdms_aligned.pkl"
+ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
+SHAPE_RDM_SAVE_DIR = ANALYSIS_ROOT / "shape_analysis" / "shape_rdms"
+HAND_RDM_SAVE_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_rdms"
+SAVE_DIR = ANALYSIS_ROOT / "hand_shape_comparison"
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+IMAGE_TYPE = 'rgb'  # Options: 'rgb' or 'depth'
+TRIAL_TYPE = "correct" 
+ORIENTATION = ['02', '0', '2'] 
+
+HAND_PATH = HAND_RDM_SAVE_DIR / f"hand_rdms_{TRIAL_TYPE}_ori{ORIENTATION[0]}.pkl"
+ALEX_PATH = SHAPE_RDM_SAVE_DIR / f"alexnet_rdms_concatenated_{IMAGE_TYPE}_{TRIAL_TYPE}_ori{ORIENTATION[0]}.pkl"
+
 
 def main():
     with open(HAND_PATH, 'rb') as f: hand_data = pickle.load(f)
@@ -30,7 +42,7 @@ def main():
     plt.title("Hand Conformation vs AlexNet Hierarchy")
     plt.ylim(0, max(results.values()) + 0.1)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.show()
+    plt.savefig(os.path.join(SAVE_DIR, f"hand_alexnet_correlation_{IMAGE_TYPE}_{TRIAL_TYPE}_ori{ORIENTATION[0]}.png"))
 
 if __name__ == "__main__":
     main()
