@@ -10,7 +10,7 @@ from glob import glob
 STL_INPUT_DIR = "/media/yiting/NewVolume/Data/Shapes/shapes_stl"
 RENDER_OUTPUT_DIR = "/media/yiting/NewVolume/Data/Shapes/shapes_6views_ori2"
 Z_CUTOFF = -30.0  # Adjust this to the height where the stem meets the base
-ORIENTATION = 90  # Degrees to rotate around Z-axis (stem) before slicing, e.g., 0, 90, 180, etc.
+ORIENTATION = 180  # Degrees to rotate around Z-axis (stem) before slicing, e.g., 0, 90, 180, etc.
 
 def get_6view_poses(distance):
     """Generates 4x4 transformation matrices for 6 cardinal directions."""

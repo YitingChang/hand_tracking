@@ -17,7 +17,7 @@ SHAPE_ID_SAVE_PATH = ANALYSIS_ROOT / "shape_analysis" / 'shape_ids.pkl'
 
 FRAME_NUMBER = 300
 TRIAL_TYPE = "correct" 
-ORIENTATION = ['02', '0', '2'] 
+ORIENTATION_LIST = ['02', '0', '2'] 
 
 def get_feature_log(feature_dir, feature_fnames, log_dir, log_fnames):
     df_list = []
@@ -74,7 +74,7 @@ def main():
     df_filtered = df_all[df_all["correct"] == True].copy()
     if "short" in TRIAL_TYPE: df_filtered = df_filtered[df_filtered["is_holdshort"]]
     
-    ori_suffixes = tuple(f"_{ori}" for ori in ORIENTATION)
+    ori_suffixes = tuple(f"_{ori}" for ori in ORIENTATION_LIST)
     df_filtered = df_filtered[df_filtered["shape_id"].str.endswith(ori_suffixes)]
 
     # Averaging
@@ -103,7 +103,10 @@ def main():
     df_avg_ordered = df_avg_ordered.dropna().reset_index(drop=True)
 
     # 4. SAVE THE CSV
-    save_name_csv = f"hand_avg_features_{TRIAL_TYPE}_ori{ORIENTATION[0]}.csv"
+    ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
+    save_name_csv = f"hand_avg_features_{TRIAL_TYPE}_{ori_str}.csv"
+    save_path = HAND_RDM_SAVE_DIR / save_name_csv
+
     save_path = HAND_RDM_SAVE_DIR / save_name_csv
     df_avg_ordered.to_csv(save_path, index=False)
     
@@ -117,7 +120,7 @@ def main():
     hand_rdm = squareform(pdist(hand_matrix, metric='correlation'))
     
     output = {'rdm': hand_rdm, 'shape_ids': df_avg_ordered['shape_id'].tolist(), 'trial_type': TRIAL_TYPE}
-    save_name_rdm = f"hand_rdms_{TRIAL_TYPE}_ori{ORIENTATION[0]}.pkl"
+    save_name_rdm = f"hand_rdms_{TRIAL_TYPE}_{ori_str}.pkl"
     with open(HAND_RDM_SAVE_DIR / save_name_rdm, 'wb') as f:
         pickle.dump(output, f)
     print(f"Hand RDM saved for {len(output['shape_ids'])} conditions.")
