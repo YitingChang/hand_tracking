@@ -7,21 +7,21 @@ from scipy.stats import spearmanr
 
 # Paths
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
-SHAPE_RDM_SAVE_DIR = ANALYSIS_ROOT / "shape_analysis" / "shape_rdms"
-HAND_RDM_SAVE_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_rdms"
-SAVE_DIR = ANALYSIS_ROOT / "rsa_comparison" / "hand_alexnet"
+SHAPE_RDM_DIR = ANALYSIS_ROOT / "shape_analysis" / "shape_rdms"
+HAND_RDM_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_rdms"
+SAVE_DIR = ANALYSIS_ROOT / "rsa_comparison" / "hand_alexnet-layer"
 os.makedirs(SAVE_DIR, exist_ok=True)
 RDM_FIG_DIR = SAVE_DIR / "rdm_figures"
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(RDM_FIG_DIR, exist_ok=True)
 
-IMAGE_TYPE = 'depth'  # Options: 'rgb' or 'depth'
+IMAGE_TYPE = 'rgb'  # Options: 'rgb' or 'depth'
 TRIAL_TYPE = "correct" 
 ORIENTATION_LIST = ['02', '0', '2'] 
 
 ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
-HAND_PATH = HAND_RDM_SAVE_DIR / f"hand_rdms_{TRIAL_TYPE}_{ori_str}.pkl"
-ALEX_PATH = SHAPE_RDM_SAVE_DIR / f"alexnet_rdms_concatenated_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.pkl"
+HAND_PATH = HAND_RDM_DIR / f"hand_rdms_{TRIAL_TYPE}_{ori_str}.pkl"
+ALEX_PATH = SHAPE_RDM_DIR / f"alexnet_rdms_concatenated_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.pkl"
 
 def plot_rdm(rdm, title, save_path):
     plt.figure(figsize=(6, 5))
@@ -56,7 +56,6 @@ def main():
         # Using LaTeX for scientific notation in title
         ax.set_title(f"Spearman $\\rho$: {rho:.3f}, $p$-value: {p:.4e}")
         ax.grid(True, linestyle='--', alpha=0.6)
-        ax.legend()
         
         plt.tight_layout()
         

@@ -19,7 +19,7 @@ IMAGE_ORI2_DIR = DATA_ROOT / "Shapes" / "shapes_6views_ori2"
 
 SHAPE_RDM_SAVE_DIR = ANALYSIS_ROOT / "shape_analysis" / "shape_rdms"
 HAND_RDM_SAVE_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_rdms"
-IMAGE_TYPE = 'depth'  # Options: 'rgb' or 'depth'
+IMAGE_TYPE = 'rgb'  # Options: 'rgb' or 'depth'
 VIEW_ORDER = ['Front', 'Back', 'Left', 'Right', 'Top', 'Bottom']
 
 TRIAL_TYPE = "correct" 
@@ -124,8 +124,15 @@ def compute_and_save_rdms():
         if len(features) == 0:
             print(f"Error: No features extracted for {label}.")
             continue
-            
+
+        # Save Alext features
+        ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
+        feature_fname = f"alexnet_{label}_features_concatenated_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.npy"
+        feature_save_path = SHAPE_RDM_SAVE_DIR / feature_fname
+        np.save(feature_save_path, features)
+
         print(f"Computing {label} RDM (Matrix size: {len(shape_ids)}x{len(shape_ids)})...")
+
         # Use correlation distance (1 - pearson)
         rdm_matrix = squareform(pdist(features, metric='correlation'))
         
@@ -137,7 +144,6 @@ def compute_and_save_rdms():
         }
 
     # Save filename reflects the orientation setup
-    ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
     save_name = f'alexnet_rdms_concatenated_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.pkl'
     save_path = SHAPE_RDM_SAVE_DIR / save_name
     

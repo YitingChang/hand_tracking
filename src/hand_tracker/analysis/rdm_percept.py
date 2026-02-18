@@ -9,9 +9,9 @@ from tqdm import tqdm
 # --- CONFIGURATION ---
 RAW_DATA_ROOT = Path("/media/yiting/NewVolume/Data/Videos")
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
-PERCEPT_DIS_SAVE_DIR = ANALYSIS_ROOT / "percept_analysis"
-HAND_RDM_SAVE_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_rdms"
-os.makedirs(PERCEPT_DIS_SAVE_DIR, exist_ok=True)
+PERCEPT_DIS_DIR = ANALYSIS_ROOT / "percept_analysis"
+HAND_RDM_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_rdms"
+os.makedirs(PERCEPT_DIS_DIR, exist_ok=True)
 
 # Parameters to match the hand and alexnet RDMs that we want to compare with
 # Note: We calculate behavioral/perceptual RDMs from engaged trials (which could be either correct or incorrect).
@@ -70,9 +70,13 @@ def main():
 
     df_all = pd.concat(df_list, ignore_index=True)
 
+    # Save the master dataframe
+    df_save_path = PERCEPT_DIS_DIR / f"percept_log_for_hand_{TRIAL_TYPE}_{ori_str}.csv"
+    df_all.to_csv(df_save_path, index=False)
+
     # 1. Align with Hand RDM Order
     hand_feat_csv = f"hand_avg_features_{TRIAL_TYPE}_{ori_str}.csv"
-    df_hand = pd.read_csv(HAND_RDM_SAVE_DIR / hand_feat_csv)
+    df_hand = pd.read_csv(HAND_RDM_DIR / hand_feat_csv)
     valid_ids = df_hand['shape_id'].astype(str).str.strip().tolist()
 
     # 2. Build Perceptual/Behavioral RDM
@@ -112,7 +116,7 @@ def main():
         'hand_metadata': {'trial_type': TRIAL_TYPE, 'orientations': ORIENTATION_LIST}
     }
 
-    save_path = PERCEPT_DIS_SAVE_DIR / f"percept_rdm_for_hand_{TRIAL_TYPE}_{ori_str}.pkl"
+    save_path = PERCEPT_DIS_DIR / f"percept_rdms_for_hand_{TRIAL_TYPE}_{ori_str}.pkl"
     with open(save_path, 'wb') as f:
         pickle.dump(save_data, f)
     
