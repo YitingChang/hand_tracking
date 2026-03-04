@@ -15,7 +15,7 @@ RDM_FIG_DIR = SAVE_DIR / "rdm_figures"
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(RDM_FIG_DIR, exist_ok=True)
 
-IMAGE_TYPE = 'depth'  # Options: 'rgb' or 'depth'
+IMAGE_TYPE = 'rgb'  # Options: 'rgb' or 'depth'
 TRIAL_TYPE = "correct" 
 ORIENTATION_LIST = ['02', '0', '2'] 
 

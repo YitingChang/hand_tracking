@@ -54,9 +54,9 @@ def main(session_name, analysis_dir):
 
     # # 1. Move litpose outputs from the litpose root folder to the analysis session folder
 
-    # lp_model_dir = Path(lp_config["eval"]["hydra_paths"][0])
-    # lp_preds_source_dir = lp_model_dir / "video_preds"
-    # lp_2d_dir = lp_dir / "video_preds"
+    lp_model_dir = Path(lp_config["eval"]["hydra_paths"][0])
+    lp_preds_source_dir = lp_model_dir / "video_preds"
+    lp_2d_dir = lp_dir / "video_preds"
     # move_lp_preds(lp_preds_source_dir, lp_2d_dir)
 
     # 1. Filter Lightning pose 2d outputs
@@ -73,8 +73,9 @@ def main(session_name, analysis_dir):
     # 2. Convert Lightning pose 2d outputs (.csv) to Anipose inputs (.hdf)
     ap_2d_dir = ap_dir / "pose_2d"
     os.makedirs(ap_2d_dir, exist_ok = True)
-    lp2anipose_session(lp_2d_filter_dir, ap_2d_dir, CAMERA_VIEWS)
-    # trials = sorted(os.listdir(ap_2d_dir))
+    # lp2anipose_session(lp_2d_filter_dir, ap_2d_dir, CAMERA_VIEWS)
+    lp2anipose_session(lp_2d_dir, ap_2d_dir, CAMERA_VIEWS)
+    trials = sorted(os.listdir(ap_2d_dir))
 
     # 3. Filter 2D data
     if ap_config['filter']['enabled']:

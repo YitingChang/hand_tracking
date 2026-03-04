@@ -8,8 +8,11 @@ from PIL import Image
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import pdist, squareform
+from sklearn.decomposition import TruncatedSVD
+from sklearn.decomposition import PCA
 from tqdm import tqdm
 import pickle
+import gc
 
 # --- CONFIGURATION ---
 DATA_ROOT = Path("/media/yiting/NewVolume/Data")
@@ -26,6 +29,10 @@ TRIAL_TYPE = "correct"
 ORIENTATION_LIST = ['02', '0', '2'] 
 ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
 os.makedirs(SHAPE_RDM_SAVE_DIR, exist_ok=True)
+
+# Compute PCA on features in another script due to memory limitations
+# Directly load reduced features to compute RDMs
+FEATURE_REDUCTION = True
 
 class FeatureExtractor:
     def __init__(self, layer_name):
@@ -112,6 +119,11 @@ def extract_concatenated_shape_features(layer_id):
         else:
             print(f"Warning: No images found for {full_id} in {current_img_dir}")
 
+    print("Clearing extractor and GPU memory...")
+    del extractor.model  # Specifically delete the heavy model
+    torch.cuda.empty_cache()
+    gc.collect()
+
     return np.array(final_features), final_shape_ids
 
 def compute_and_save_rdms():
@@ -119,17 +131,31 @@ def compute_and_save_rdms():
     results = {}
 
     for label, layer_id in target_layers.items():
-        features, shape_ids = extract_concatenated_shape_features(layer_id)
         
-        if len(features) == 0:
-            print(f"Error: No features extracted for {label}.")
-            continue
-
-        # Save Alext features
+        # --- Extract Alexnet features ---
         ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
         feature_fname = f"alexnet_{label}_features_concatenated_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.npy"
-        feature_save_path = SHAPE_RDM_SAVE_DIR / feature_fname
-        np.save(feature_save_path, features)
+        shape_ids_fname = f"alexnet_{label}_shape_ids_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.npy"
+        feature_path = SHAPE_RDM_SAVE_DIR / feature_fname
+        shape_ids_path = SHAPE_RDM_SAVE_DIR / shape_ids_fname
+
+        if FEATURE_REDUCTION:
+            features = np.load(feature_path)
+            shape_ids = np.load(shape_ids_path)
+
+        else:
+            features, shape_ids = extract_concatenated_shape_features(layer_id)
+            
+            if len(features) == 0:
+                print(f"Error: No features extracted for {label}.")
+                continue
+            
+            # Save AlexNet Features (if needed)
+            feat_save_path = SHAPE_RDM_SAVE_DIR / "all_features" / feature_fname
+            np.save(feat_save_path, features.astype(np.float32))
+            np.save(shape_ids_path, shape_ids)
+
+        # --- Compute RDM ---
 
         print(f"Computing {label} RDM (Matrix size: {len(shape_ids)}x{len(shape_ids)})...")
 

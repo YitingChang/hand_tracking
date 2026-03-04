@@ -19,8 +19,8 @@ PERCEPT_RDM_SAVE_DIR = ANALYSIS_ROOT / "percept_analysis"
 RSA_SAVE_DIR = ANALYSIS_ROOT / "rsa_comparison"
 os.makedirs(RSA_SAVE_DIR, exist_ok=True)
 
-ALEXNET_LAYER = 'mid'  # Options: 'low', 'mid', 'high'
-IMAGE_TYPE = 'depth'  # Options: 'rgb' or 'depth'
+ALEXNET_LAYER = 'low'  # Options: 'low', 'mid', 'high'
+IMAGE_TYPE = 'rgb'  # Options: 'rgb' or 'depth'
 TRIAL_TYPE = "correct" 
 ORIENTATION_LIST = ['02', '0', '2'] 
 ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"

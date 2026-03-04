@@ -1,3 +1,11 @@
+import numpy as np
+
+# Patch NumPy 2.0 for legacy TensorBoard/Lightning compatibility
+if not hasattr(np, "string_"):
+    np.string_ = np.bytes_
+if not hasattr(np, "unicode_"):
+    np.unicode_ = np.str_
+    
 import subprocess
 import argparse
 import sys
@@ -6,15 +14,15 @@ from pathlib import Path
 # ------ CONFIGURATION ------
 RAW_DATA_ROOT = Path("/media/yiting/NewVolume/Data/Videos")
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
-LP_ROOT = Path("/home/yiting/Documents/GitHub/lightning-pose")
+LP_ROOT = Path("/home/yiting/Documents/GitHub/lightning-pose-rockfish")
 LP_CONFIG_NAME = "config.yaml"
 AP_CONFIG_NAME = "config.toml"
 
 # PATHS TO ENVIRONMENTS
 ENV_PATHS = {
     "preprocessing": "/home/yiting/anaconda3/envs/hand-trk/bin/python",
-    "training":      "/home/yiting/anaconda3/envs/litpose/bin/python",
-    "inference":     "/home/yiting/anaconda3/envs/litpose/bin/python",      
+    "training":      "/home/yiting/anaconda3/envs/lp-rf/bin/python",
+    "inference":     "/home/yiting/anaconda3/envs/lp-rf/bin/python",      
     "triangulation": "/home/yiting/anaconda3/envs/anipose/bin/python", 
     "kinematics":    "/home/yiting/anaconda3/envs/hand-trk/bin/python"
 }

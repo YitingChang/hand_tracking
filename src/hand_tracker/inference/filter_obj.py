@@ -57,12 +57,15 @@ def filter_obj(df, roi):
 
     df_filtered = df.copy()
 
+    # Extract the scorer name from the 1st level (Level 0) of the MultiIndex
+    scorer = df_filtered.columns.get_level_values(0)[0]
+
     # 2. Iterate through keypoints and apply ROI/Likelihood logic
     for kpt in OBJECT_KPTs:
         # Define column accessors for this keypoint
-        x_col = (kpt, "x")
-        y_col = (kpt, "y")
-        l_col = (kpt, "likelihood")
+        x_col = (scorer, kpt, "x")
+        y_col = (scorer, kpt, "y")
+        l_col = (scorer, kpt, "likelihood")
         
         # Skip if keypoint not found in CSV
         if x_col not in df_filtered.columns:
@@ -99,12 +102,20 @@ def interpolate_obj(df):
 def smooth_obj(df):
     # --- Smooth ---
     df_smoothed = df.copy()
+    scorer = df_smoothed.columns.get_level_values(0)[0]
 
     # Apply filter to each coordinate
     for kpt in OBJECT_KPTs:
         for coord in ['x', 'y']:
+            # Define the 3-level tuple for column access
+            col_tuple = (scorer, kpt, coord)
+            
+            # Skip if the exact column tuple isn't in the DataFrame
+            if col_tuple not in df_smoothed.columns:
+                continue
+                
             # Get the series
-            series = df_smoothed[kpt][coord]
+            series = df_smoothed[col_tuple]
             
             # 1. Identify where data is missing (the "long gaps" we purposely kept)
             is_missing = series.isna()
@@ -123,11 +134,11 @@ def smooth_obj(df):
                 smoothed_values = savgol_filter(temp_series, window_length=WINDOW_LEN, polyorder=POLY_ORDER)
                 
                 # 4. Store smoothed values
-                df_smoothed.loc[:, (kpt, coord)] = smoothed_values
+                df_smoothed.loc[:, (scorer, kpt, coord)] = smoothed_values
                 
                 # 5. Re-apply the NaN mask (restore the long gaps)
                 # This ensures we don't invent data where the object was missing for a long time
-                df_smoothed.loc[is_missing, (kpt, coord)] = np.nan
+                df_smoothed.loc[is_missing, (scorer, kpt, coord)] = np.nan
     return df_smoothed
 
 def process_trial(trial_name, lp_2d_dir, lp_2d_filter_dir):
@@ -143,8 +154,8 @@ def process_trial(trial_name, lp_2d_dir, lp_2d_filter_dir):
             continue
         
         # --- Load Data ---
-        try: # Load CSV with MultiIndex headers (Level 0: bodyparts, Level 1: coords)
-            df = pd.read_csv(pred_file_path, header=[1, 2], index_col=0)
+        try: # Load CSV with MultiIndex headers (Level 0: scorer, Level 1: bodyparts, Level 2: coords)
+            df = pd.read_csv(pred_file_path, header=[0, 1, 2], index_col=0)
         except Exception as e:
             print(f"Error reading {file_name}: {e}")
             continue

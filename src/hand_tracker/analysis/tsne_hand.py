@@ -2,16 +2,20 @@ import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
-import shap
 import pickle
 from sklearn.preprocessing import StandardScaler
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-
+from sklearn.cluster import KMeans
+import shap
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
+import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from PIL import Image
+
 
 # --- Configuration ---
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
@@ -32,13 +36,14 @@ FRAME_NUMBER = 300
 alexnet_tsne_path = ALEXNET_TSNE_DIR / f"alexnet_{ALEXNET_LAYER}_tsne_{IMAGE_TYPE}_{ori_str}.csv"
 # Model parameters
 TSNE_PERPLEXITY = 30
+NUM_CLUSTER = 5
 
 # --- Functions ---
 
 def compute_tsne_pca(df, feature_names):
 
-    # Extract shape_type and orientation safely
-    df['shape_type'] = df['shape_id'].apply(lambda x: x.split('_')[0] if '_' in x else x)
+    # Extract object id and orientation safely
+    df['object_id'] = df['shape_id'].apply(lambda x: x.split('_')[0] if '_' in x else x)
     df['orientation'] = df['shape_id'].apply(lambda x: x.split('_')[1] if '_' in x else '0')
 
     # Prepare features for t-SNE using explicit column names
@@ -68,72 +73,61 @@ def compute_tsne_pca(df, feature_names):
     return df, X_scaled, tsne_features, principal_components
 
 def get_shape_analysis(df):
-    '''
-    Load shape tsne results and map shape_type to tsne-d1 order
-    '''
-    # Load shape analysis results
-    df_shape = pd.read_csv(alexnet_tsne_path)
 
-    for row_idx, row in df.iterrows():
-        shape_type_trial = row['shape_id']
-        shape_tsne_d1 = df_shape.loc[df_shape['shape_id'] == shape_type_trial, 'TSNE1'].values
-        shape_tsne_d2 = df_shape.loc[df_shape['shape_id'] == shape_type_trial, 'TSNE2'].values
-        if shape_tsne_d1.size > 0:
-            df.at[row_idx, 'shape_tsne-d1'] = shape_tsne_d1[0]
-        else:
-            df.at[row_idx, 'shape_tsne-d1'] = np.nan
-        if shape_tsne_d2.size > 0:
-            df.at[row_idx, 'shape_tsne-d2'] = shape_tsne_d2[0]
-        else:
-            df.at[row_idx, 'shape_tsne-d2'] = np.nan
+    df_shape = pd.read_csv(alexnet_tsne_path)
+    
+    # Pre-map for performance
+    mapping_d1 = dict(zip(df_shape['shape_id'], df_shape['TSNE1']))
+    mapping_d2 = dict(zip(df_shape['shape_id'], df_shape['TSNE2']))
+    mapping_path = dict(zip(df_shape['shape_id'], df_shape['OverlayPath']))
+
+    df['shape_tsne-d1'] = df['shape_id'].map(mapping_d1)
+    df['shape_tsne-d2'] = df['shape_id'].map(mapping_d2)
+    df['overlay_path'] = df['shape_id'].map(mapping_path)
+    
     return df
 
-def plot_dim_red(df, method="tsne", color_by=None):
+def plot_dim_red(df, method="tsne", scatter_color_mode="monochrome", overlay=False, zoom=0.25):
+    """
+    scatter_color_mode: "monochrome", "obj_id", "shape_tsne1", "shape_tsne2"
+    overlay: bool, if True, adds original color images
+    """
     # ---- Setup Filenames ----
-    if method == "tsne":
-        dim1 = 'tsne-d1'
-        dim2 = 'tsne-d2'
-        base_name = f"hand_conf_{TRIAL_TYPE}_f{FRAME_NUMBER}_{method}_perplexity{TSNE_PERPLEXITY}"
-    elif method == "pca":
-        dim1 = 'pca-d1'
-        dim2 = 'pca-d2'
-        base_name = f"hand_conf_{TRIAL_TYPE}_f{FRAME_NUMBER}_{method}"
-
-    save_fname = f"{base_name}_{color_by}.png" if color_by else f"{base_name}.png"
+    dim1, dim2 = ('tsne-d1', 'tsne-d2') if method == "tsne" else ('pca-d1', 'pca-d2')
+    base_name = f"hand_{TRIAL_TYPE}_{FRAME_NUMBER}_{method}_{scatter_color_mode}"
+    save_fname = f"{base_name}_overlay.png" if overlay else f"{base_name}.png"
 
     # Create figure
     fig, ax = plt.subplots(figsize=(16, 16))
-
-    # ---- 1. Color Mapping Logic ----
     df = get_shape_analysis(df)
-    shape_types = sorted(df['shape_type'].unique())
+    obj_ids = sorted(df['object_id'].unique())
     
-    # Check if we are doing continuous coloring
-    is_continuous = color_by in ["shape_tsne1", "shape_tsne2"]
-    
-    if is_continuous:
-        target_col = 'shape_tsne-d1' if color_by == "shape_tsne1" else 'shape_tsne-d2'
-        cmap = plt.get_cmap('viridis')
+    # ---- 1. Four-Way Color Logic ----
+    is_continuous = False
+    sm = None
+
+    if scatter_color_mode == "monochrome":
+        # Version 1: All points one neutral color
+        color_map = {oi: "slategray" for oi in obj_ids}
         
-        vmin, vmax = df[target_col].min(), df[target_col].max()
-        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+    elif scatter_color_mode == "obj_id":
+        # Version 2: Each object identity gets a unique categorical color
+        cmap = plt.get_cmap('Spectral')
+        color_map = {oi: cmap(i / len(obj_ids)) for i, oi in enumerate(obj_ids)}
+        
+    elif scatter_color_mode in ["shape_tsne1", "shape_tsne2"]:
+        # Versions 3 & 4: Continuous mapping based on AlexNet feature space
+        is_continuous = True
+        target_col = 'shape_tsne-d1' if scatter_color_mode == "shape_tsne1" else 'shape_tsne-d2'
+        
+        cmap = plt.get_cmap('viridis')
+        norm = mcolors.Normalize(vmin=df[target_col].min(), vmax=df[target_col].max())
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array([])
         
         color_map = {}
-        for st in shape_types:
-            val = df.loc[df['shape_type'] == st, target_col].mean()
-            color_map[st] = cmap(norm(val))
-            
-    else: 
-        # Default: Categorical coloring (Spectral)
-        # With 622 shapes, we use a cyclical colormap or high-contrast map, 
-        # though duplicates will occur.
-        cmap = plt.get_cmap('Spectral') 
-        if len(shape_types) > 1:
-            color_map = {st: cmap(i / (len(shape_types) - 1)) for i, st in enumerate(shape_types)}
-        else:
-            color_map = {shape_types[0]: cmap(0.5)}
+        for oi in obj_ids:
+            val = df.loc[df['object_id'] == oi, target_col].mean()
+            color_map[oi] = cmap(norm(val))
 
     # ---- 2. Marker & Edge Logic ----
     marker_map = {"0": "o", "2": "D", "02": "*"}
@@ -156,45 +150,53 @@ def plot_dim_red(df, method="tsne", color_by=None):
 
     # ---- Plotting ----
     # Iterate through shapes to plot
-    for st in shape_types:
-        sub = df[df['shape_type'] == st]
+    for oi in obj_ids:
+        sub = df[df['object_id'] == oi]
         for m in sub['marker'].unique():
             tmp = sub[sub['marker'] == m]
             if tmp.empty: continue
             
             ax.scatter(
                 tmp[dim1], tmp[dim2],
-                c=[color_map[st]] * len(tmp),
+                c=[color_map[oi]] * len(tmp),
                 marker=m,
                 s=50,
                 linewidths=0.5,
                 edgecolors=tmp['edgecolor'],
-                alpha=1,
-                label=f"{st}"
+                alpha=0.7,
+                label=f"{oi}"
             )
-
-    ax.set_title(f"Hand_conformation_{TRIAL_TYPE}_f{FRAME_NUMBER}\nColor: {color_by if color_by else 'ShapeType'}", fontsize=14)
+    if overlay:
+        print(f"Adding image overlays...")
+        for i, row in df.iterrows():
+            if i % 15 == 0 and pd.notna(row['overlay_path']):
+                if os.path.exists(row['overlay_path']):
+                    img = Image.open(row['overlay_path']).convert('RGB')
+                    imagebox = OffsetImage(img, zoom=zoom)
+                    ab = AnnotationBbox(imagebox, (row[dim1], row[dim2]), frameon=True, 
+                                        bboxprops=dict(edgecolor='black', alpha=0.3))
+                    ax.add_artist(ab)
+    ax.set_title(f"Hand Conformation Space\nScatter Color: {scatter_color_mode}", fontsize=16)
     ax.set_xlabel(dim1, fontsize=12)
     ax.set_ylabel(dim2, fontsize=12)
 
     # ---- Legends / Colorbar ----
     
     # A. Handle Color Legend
-    if is_continuous:
-        # Continuous -> Colorbar
+    if is_continuous and sm:
         cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.04)
-        cbar.set_label(f"Value: {color_by}", fontsize=10)
+        cbar.set_label(f"AlexNet {ALEXNET_LAYER} {scatter_color_mode}", fontsize=12)
     else:
         # Discrete -> Check count
-        if len(shape_types) > 20:
+        if len(obj_ids) > 20:
             # TOO MANY SHAPES: Do NOT plot shape legend
-            print(f"Skipping shape legend (n={len(shape_types)} types)")
+            print(f"Skipping shape legend (n={len(obj_ids)} types)")
         else:
             color_handles = [
                 plt.Line2D([0], [0], marker='o', color='w',
-                           markerfacecolor=color_map[st], markersize=8,
-                           label=str(st))
-                for st in shape_types
+                           markerfacecolor=color_map[oi], markersize=8,
+                           label=str(oi))
+                for oi in obj_ids
             ]
             leg1 = ax.legend(handles=color_handles, title='Shape Type',
                              loc='upper center', bbox_to_anchor=(0.5, -0.15),
@@ -221,7 +223,7 @@ def plot_dim_red(df, method="tsne", color_by=None):
 
     # Calculate positions
     # If we skipped the shape legend, we can put the others higher up
-    has_shape_legend = (not is_continuous) and (len(shape_types) <= 20)
+    has_shape_legend = (not is_continuous) and (len(obj_ids) <= 20)
     bottom_anchor_y = -0.15 if not has_shape_legend else -0.25
     
     if marker_handles:
@@ -245,6 +247,82 @@ def plot_dim_red(df, method="tsne", color_by=None):
     plt.close()
     print(f"Saved plot to: {save_path}")
 
+
+def get_feature_contribution(X_scaled, tsne_features, feature_names):
+    # Train a Surrogate Model (Random Forest)
+    # Multi-output regression: X (features) -> Y (tSNE coord 1, tSNE coord 2)
+    rf = RandomForestRegressor(n_estimators=100, random_state=42)
+    rf.fit(X_scaled, tsne_features)
+
+    # 4. Extract Feature Importances
+    importances = rf.feature_importances_
+    
+    feature_importance_df = pd.DataFrame({
+        'Feature': feature_names,
+        'Importance': importances
+    }).sort_values(by='Importance', ascending=False)
+
+    # 5. Visualization (Feature Importance)
+    plt.figure(figsize=(10, 6))
+    sns.barplot(
+        x='Importance', 
+        y='Feature', 
+        hue='Feature', 
+        data=feature_importance_df.head(10), 
+        palette='viridis', 
+        legend=False
+    )
+    plt.title('Top 10 Features Driving the t-SNE Structure')
+    plt.xlabel('Relative Importance Score')
+    plt.ylabel('Original Feature Name')
+    plt.tight_layout()
+    
+    save_path = os.path.join(HAND_TSNE_DIR, f"feature_importance_{TRIAL_TYPE}_f{FRAME_NUMBER}_tsne_perplexity{TSNE_PERPLEXITY}.png")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print("\nTop 5 Most Influential Features:")
+    print(feature_importance_df.head(5))
+
+    # 6. SHAP Analysis
+    X_df = pd.DataFrame(X_scaled, columns=feature_names)
+    
+    explainer = shap.TreeExplainer(rf)
+    shap_values = explainer.shap_values(X_df)
+
+    # Case 1: Old SHAP behavior (List of 2D arrays)
+    if isinstance(shap_values, list):
+        shap_d1 = shap_values[0]
+        shap_d2 = shap_values[1]
+    # Case 2: New SHAP behavior (Single 3D array)
+    # Shape is (n_samples, n_features, n_outputs)
+    elif len(shap_values.shape) == 3:
+        shap_d1 = shap_values[:, :, 0]  # All samples, All features, Output 0
+        shap_d2 = shap_values[:, :, 1]  # All samples, All features, Output 1
+    # Case 3: Fallback (Single output model)
+    else:
+        print("Warning: Model appears to be single-output.")
+        shap_d1 = shap_values
+        shap_d2 = None
+
+    # 7. Plot SHAP results 
+    # Plotting Dimension 1 (X-axis) drivers
+    plt.figure()
+    plt.title("What drives separation along the Horizontal Axis (Dim 1)?")
+    shap.summary_plot(shap_d1, X_df, show=False)
+    plt.savefig(os.path.join(HAND_TSNE_DIR, f"feature_importance_d1_{TRIAL_TYPE}_f{FRAME_NUMBER}_tsne_perplexity{TSNE_PERPLEXITY}.png"), dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Plotting Dimension 2 (Y-axis) drivers
+    if shap_d2 is not None:
+        plt.figure()
+        plt.title("What drives separation along the Vertical Axis (Dim 2)?")
+        shap.summary_plot(shap_d2, X_df, show=False)
+        plt.savefig(os.path.join(HAND_TSNE_DIR, f"feature_importance_d2_{TRIAL_TYPE}_f{FRAME_NUMBER}_tsne_perplexity{TSNE_PERPLEXITY}.png"), dpi=300, bbox_inches='tight')
+        plt.close()
+
+
+
 def main():
     # --- 1. Load Data ---
     hand_feat_csv = f"hand_avg_features_{TRIAL_TYPE}_{ori_str}.csv"
@@ -256,22 +334,29 @@ def main():
     # Compute tSNE (Pass feature_names explicitly)
     df_tsne_pca, X_scaled, tsne_features, principal_components = compute_tsne_pca(df_hand, feature_names)
 
-    # Plot tSNE and PCA
-    plot_dim_red(df_tsne_pca, method="tsne")
-    plot_dim_red(df_tsne_pca, method="tsne", color_by="shape_tsne1")
-    plot_dim_red(df_tsne_pca, method="tsne", color_by="shape_tsne2")
-    plot_dim_red(df_tsne_pca, method="pca")
-    plot_dim_red(df_tsne_pca, method="pca", color_by="shape_tsne1")
-    plot_dim_red(df_tsne_pca, method="pca", color_by="shape_tsne2")
+    # Generate the 4 requested versions
+    modes = ["monochrome", "obj_id", "shape_tsne1", "shape_tsne2"]
+    
+    for mode in modes:
+        # Without overlay
+        plot_dim_red(df_tsne_pca, method="tsne", scatter_color_mode=mode, overlay=False)
+        # With overlay
+        plot_dim_red(df_tsne_pca, method="tsne", scatter_color_mode=mode, overlay=True)
+
+    for mode in modes:
+        # Without overlay
+        plot_dim_red(df_tsne_pca, method="pca", scatter_color_mode=mode, overlay=False)
+        # With overlay
+        plot_dim_red(df_tsne_pca, method="pca", scatter_color_mode=mode, overlay=True)
 
     # tSNE clustering analysis
-    # kmeans = KMeans(n_clusters=NUM_CLUSTER, random_state=42)
-    # df_tsne_pca['cluster'] = kmeans.fit_predict(tsne_features)
+    kmeans = KMeans(n_clusters=NUM_CLUSTER, random_state=42)
+    df_tsne_pca['cluster'] = kmeans.fit_predict(tsne_features)
 
     # Save tSNE results
-    # df_tsne_pca.to_csv(os.path.join(SAVE_ROOT, f"hand_conf_{TRIAL_TYPE}_f{FRAME_NUMBER}_pca_tsne_perplexity{TSNE_PERPLEXITY}.csv"), index=False)
+    df_tsne_pca.to_csv(os.path.join(HAND_TSNE_DIR, f"hand_conf_{TRIAL_TYPE}_f{FRAME_NUMBER}_pca_tsne_perplexity{TSNE_PERPLEXITY}.csv"), index=False)
     # Get feature contribution
-    # get_feature_contribution(X_scaled, tsne_features, feature_names)
+    get_feature_contribution(X_scaled, tsne_features, feature_names)
 
 if __name__ == "__main__":
     main()

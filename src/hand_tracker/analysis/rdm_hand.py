@@ -70,6 +70,9 @@ def main():
 
     df_all = pd.concat(df_all_list, ignore_index=True)
 
+    print(f"Total number of trials: {df_all.shape[0]}")
+    print(f"Total number of features: {len(feature_names)}")
+
     # Filtering
     df_filtered = df_all[df_all["correct"] == True].copy()
     if "short" in TRIAL_TYPE: df_filtered = df_filtered[df_filtered["is_holdshort"]]
