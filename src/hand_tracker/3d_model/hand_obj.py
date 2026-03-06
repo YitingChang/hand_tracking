@@ -13,22 +13,20 @@ RAW_DATA_ROOT = Path("/media/yiting/NewVolume/Data/Videos")
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
 STL_ROOT = Path("/media/yiting/NewVolume/Data/Shapes/shapes_stl")
 session_name = "2025-12-09"
-trial_name = "2025-12-09_09-02-01"
+trial_name = "2025-12-09_09-01-20"
 FRAME_NUMBER = 300
-# Constants for thickness
+
 FINGER_DIAMETER_MM = 8.0  # Approximate diameter of a monkey finger in mm for visualization purposes
 PALM_THICKNESS = 9.0        # Palm thickness in mm
-# Conversion to Matplotlib points
 LW = (FINGER_DIAMETER_MM / 25.4) * 72 # 0.8mm in points (1 inch = 25.4mm, 1 inch = 72 points)
-OBJECT_COLOR = "#808080"    # Neutral grey for the object
+
+OBJECT_COLOR = "#808080"    
 HAND_COLORS = {
-    "Thumb": "#FF5733",  # Orange-Red
-    "Index": "#33FF57",  # Green
-    "Middle": "#3357FF", # Blue
-    "Ring": "#F333FF",   # Magenta
-    "Small": "#FFD433",  # Yellow
-    "Palm": "#FFCC99"    # Realistic skin-tone/peach for the palm
+    "Thumb": "#FF5733", "Index": "#33FF57", "Middle": "#3357FF", 
+    "Ring": "#F333FF", "Small": "#FFD433", "Palm": "#FFCC99"
 }
+HAND_OPACITY = 0 
+OBJECT_OPACITY = 1 
 
 # --- 1. LOAD DATA ---
 # Load 3D pose data from CSV
@@ -72,7 +70,7 @@ finger_chains = {
 # --- 3. PALM GEOMETRY (Convex Hull) ---
 palm_keypoints = ["Small_MCP", "Ring_MCP", "Middle_MCP", "Index_MCP", 
                   "Thumb_MCP", "Thumb_CMC", "Wrist_R", "Wrist_U"]
-base_pts = np.array([get_xyz(name) for name in palm_keypoints])
+palm_pts = np.array([get_xyz(name) for name in palm_keypoints])
 
 # Define the local normal to create the volume
 wrist_avg = (get_xyz("Wrist_R") + get_xyz("Wrist_U")) / 2.0
@@ -83,9 +81,9 @@ normal /= np.linalg.norm(normal)
 
 # Generate a cloud of points for the palm volume
 # Including the center point makes the hull more "fleshy"
-palm_center = base_pts.mean(axis=0)
-top_pts = base_pts + (normal * (PALM_THICKNESS / 2.0))
-bottom_pts = base_pts - (normal * (PALM_THICKNESS / 2.0))
+palm_center = palm_pts.mean(axis=0)
+top_pts = palm_pts + (normal * (PALM_THICKNESS / 2.0))
+bottom_pts = palm_pts - (normal * (PALM_THICKNESS / 2.0))
 all_palm_cloud = np.vstack([top_pts, bottom_pts, palm_center])
 
 # Calculate the Convex Hull
@@ -93,8 +91,15 @@ hull = ConvexHull(all_palm_cloud)
 hull_faces = [all_palm_cloud[s] for s in hull.simplices]
 
 # --- 4. CALCULATE RIGID TRANSFORM FOR STL ---
-def get_rigid_transform(A, B):
+def get_rigid_transform(src, tgt):
     """Calculates R and t such that B = R*A + t (Procrustes Analysis)"""
+    mask = ~np.isnan(src).any(axis=1) & ~np.isnan(tgt).any(axis=1)
+    A = src[mask]
+    B = tgt[mask]
+    
+    if len(A) < 3:
+        raise ValueError("Not enough valid markers to calculate transform.")
+    
     centroid_A = np.mean(A, axis=0)
     centroid_B = np.mean(B, axis=0)
     AA = A - centroid_A
@@ -131,31 +136,30 @@ ax = fig.add_subplot(111, projection='3d')
 for name, chain in finger_chains.items():
     pts = np.array([get_xyz(pt) for pt in chain])
     ax.plot(pts[:,0], pts[:,1], pts[:,2], color=HAND_COLORS[name], 
-            linewidth=LW, solid_capstyle='round', alpha=0.5, zorder=10)
-    ax.scatter(pts[:,0], pts[:,1], pts[:,2], color='white', s=40, edgecolors='black', zorder=15)
+            linewidth=LW, solid_capstyle='round', alpha=HAND_OPACITY, zorder=10)
+    ax.scatter(pts[:,0], pts[:,1], pts[:,2], color='white', s=70, edgecolors='black', zorder=15)
 
 # B. Plot Realistic Palm (Convex Hull)
-palm_poly = Poly3DCollection(hull_faces, facecolors=HAND_COLORS["Palm"], alpha=0.5, zorder=5,
+palm_poly = Poly3DCollection(hull_faces, facecolors=HAND_COLORS["Palm"], alpha=HAND_OPACITY, zorder=5,
                              edgecolors='k', linewidths=0.2)
 ax.add_collection3d(palm_poly)
-ax.scatter(base_pts[:,0], base_pts[:,1], base_pts[:,2], 
-           color='white', s=40, edgecolors='black', zorder=13)
+ax.scatter(palm_pts[:,0], palm_pts[:,1], palm_pts[:,2], 
+           color='white', s=70, edgecolors='black', zorder=15)
 
 # C. Plot Object (Solid Grey Surface)
-# mesh = trimesh.load('transformed_object_f300.stl') # Assuming object is pre-aligned
 v, faces = mesh.vertices, mesh.faces
 ax.plot_trisurf(v[:,0], v[:,1], v[:,2], triangles=faces, 
-                color=OBJECT_COLOR, alpha=0.6, edgecolor='none')
+                color=OBJECT_COLOR, alpha=OBJECT_OPACITY, edgecolor='none')
 
 # D. Plot Markers (Red)
 dot_names = ["Dot_t1", "Dot_t2", "Dot_t3", "Dot_b1", "Dot_b2", "Dot_b3", 
              "Dot_l1", "Dot_l2", "Dot_l3", "Dot_r1", "Dot_r2", "Dot_r3"]
 tgt_dots = np.array([get_xyz(name) for name in dot_names])
 ax.scatter(tgt_dots[:,0], tgt_dots[:,1], tgt_dots[:,2], 
-           color='red', s=40, edgecolors='black', label='Object Markers', zorder=20)
+           color='red', s=20, edgecolors='black', label='Object Markers', zorder=20)
 
 # --- 4. FINAL FORMATTING ---
-ax.set_title(f"Hand and Object (Frame {FRAME_NUMBER}, Shape {shape_id})", fontsize=16)
+ax.set_title(f"Hand and Object ({trial_name}, Frame {FRAME_NUMBER}, Shape {shape_id})", fontsize=16)
 ax.set_xlabel('X (mm)'); ax.set_ylabel('Y (mm)'); ax.set_zlabel('Z (mm)')
 
 # Set Equal Aspect Ratio
@@ -166,4 +170,12 @@ ax.set_xlim(mid[0]-max_range, mid[0]+max_range)
 ax.set_ylim(mid[1]-max_range, mid[1]+max_range)
 ax.set_zlim(mid[2]-max_range, mid[2]+max_range)
 
-plt.show()
+ax.computed_zorder = False
+ax.view_init(elev=3, azim=82, roll=-10)
+# plt.show()
+
+# Save PNG
+recon_dir = ANALYSIS_ROOT / session_name / 'reconstructions' / trial_name
+recon_dir.mkdir(parents=True, exist_ok=True)
+img_path = recon_dir / f'recon_{trial_name}_f{FRAME_NUMBER}_opc{HAND_OPACITY*10:.0f}.png'
+plt.savefig(img_path, dpi=300)
