@@ -6,7 +6,7 @@ from pathlib import Path
 # Constants
 CAMERA_VIEWS = ["To", "TL", "TR", "BL", "BR"]
 
-def prep_litpose(session_name, data_dir, analysis_dir):
+def prep_litpose_inference(session_name, data_dir, analysis_dir):
     """
     Reorganizes raw video files into the Lightning Pose directory structure.
     """
@@ -60,4 +60,4 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    prep_litpose(args.session, args.data_dir, args.analysis_dir)
+    prep_litpose_inference(args.session, args.data_dir, args.analysis_dir)

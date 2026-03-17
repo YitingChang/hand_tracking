@@ -1,9 +1,17 @@
 import os
+from pathlib import Path
 from glob import glob
 import pandas as pd
 from datetime import datetime, timedelta
 import json
 import yaml
+
+def contains_subdirectory(directory: str):
+    path = Path(directory)
+    if path.is_dir():
+        # Check if any item inside is a directory
+        return any(item.is_dir() for item in path.iterdir())
+    return False
 
 def load_json(json_path):
     
