@@ -219,3 +219,5 @@ recon_dir = ANALYSIS_ROOT / session_name / 'reconstructions' / trial_name
 recon_dir.mkdir(parents=True, exist_ok=True)
 img_path = recon_dir / f'contact_points_{trial_name}_f{FRAME_NUMBER}_t{DISTANCE_THRESHOLD_MM}.png'
 plt.savefig(img_path, dpi=300)
+
+

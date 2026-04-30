@@ -2,7 +2,7 @@ import os
 import subprocess
 import shutil
 from pathlib import Path
-from hand_tracker.utils.file_io import contains_subdirectory
+from hand_tracker.utils.file_io import contains_subdirectory, get_new_video_name
 
 def check_codec_format(input_file: str) -> bool:
     """Run FFprobe command to get video codec and pixel format."""
@@ -25,7 +25,7 @@ def reencode_video(input_file: str, output_file: str) -> None:
     ]
     subprocess.run(ffmpeg_cmd)
 
-def get_videos(jarvis_dir: str, lp_dir: str, src_vid_dir: str):
+def get_videos(jarvis_dir: str, lp_dir: str, src_vid_dir: str, subject_name):
     """
     Copies or re-encodes videos from Jarvis source to LP project directory.
     Maintains original trial names and standardizes naming to Trial_01_camName.mp4.
@@ -40,11 +40,9 @@ def get_videos(jarvis_dir: str, lp_dir: str, src_vid_dir: str):
     trials = sorted([d.name for d in jarvis_path.iterdir() if d.is_dir() and contains_subdirectory(d)])
 
     for t in trials:
-        # Assuming src_vid_dir structure: src_vid_dir / SubjectName / 'cameras' / Trial_Name / camera_file
-        # We extract 'SubjectName' from the start of the trial string if needed
-        # Or if src_vid_dir already points to the camera parent, adjust accordingly.
-        subject_name = t.split('_')[0]
-        trial_vid_folder = src_vid_path / subject_name / 'cameras' / t
+        # Assuming src_vid_dir structure: src_vid_dir / Session_Name / 'cameras' / Trial_Name / camera_file
+        session_name = t.split('_')[0]
+        trial_vid_folder = src_vid_path / session_name / 'cameras' / t
         
         if not trial_vid_folder.exists():
             print(f"Warning: Video folder not found: {trial_vid_folder}")
@@ -59,8 +57,8 @@ def get_videos(jarvis_dir: str, lp_dir: str, src_vid_dir: str):
             camera_name = vid_file.stem 
             
             # New name: Trial_01_camTo.mp4 (standardizing extension to .mp4)
-            vidname_new = f"{t}_{camera_name}.mp4"
-            dest_path = lp_video_dir / vidname_new
+            new_video_name = get_new_video_name(subject_name, t, camera_name)
+            dest_path = lp_video_dir / f"{new_video_name}.mp4"
             
             print(f"Processing: {t} | {camera_name}")
 

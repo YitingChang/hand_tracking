@@ -25,6 +25,11 @@ def load_litpose_config(config_path):
         data = yaml.safe_load(file)
     return data
 
+def get_new_video_name(subject_name, trial_name, camera_view) -> str:
+    # new_trial_name = "_".join(trial_name.split("_")[:-1])
+    new_video_name = "_".join([subject_name, trial_name, camera_view])
+    return new_video_name
+
 def get_trialname(file_path):
     base = os.path.basename(file_path)
     filename, _ = os.path.splitext(base)
