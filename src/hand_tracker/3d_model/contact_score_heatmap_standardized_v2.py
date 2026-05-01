@@ -80,38 +80,81 @@ finger_chains = {
 }
 palm_loop = ["Small_MCP", "Ring_MCP", "Middle_MCP", "Index_MCP", "Thumb_MCP", "Thumb_CMC", "Wrist_R", "Wrist_U"]
 
-def get_canonical_flat_mesh(finger_chains, palm_loop):
+def get_canonical_flat_mesh_from_measurements(finger_chains, palm_loop):
+    """
+    Creates a static 3D hand mesh based on subject-specific measurements (Neo).
+    Lengths are converted from cm to mm.
+    """
     parts = []
     radius = FINGER_DIAMETER_MM / 2.0
-    spacing = 16.0
-    canonical_joints = {
-        "Wrist_R": np.array([-10, -30, 0]), "Wrist_U": np.array([10, -30, 0]),
-        "Thumb_CMC": np.array([-25, -15, 0]), "Thumb_MCP": np.array([-30, 5, 0]),
-        "Thumb_IP":  np.array([-35, 20, 0]),  "Thumb_Tip": np.array([-38, 32, 0])
+    
+    # 1. Subject-Specific Bone Lengths (mm) extracted from TSV
+    # Fingers (Proximal to Distal segments)
+    L = {
+        "Small":  {"MCP-PIP": 24.3, "PIP-DIP": 15.5, "DIP-Tip": 10.3},
+        "Ring":   {"MCP-PIP": 33.5, "PIP-DIP": 20.1, "DIP-Tip": 10.1},
+        "Middle": {"MCP-PIP": 25.6, "PIP-DIP": 20.6, "DIP-Tip": 10.8},
+        "Index":  {"MCP-PIP": 25.0, "PIP-DIP": 19.8, "DIP-Tip": 7.2},
+        "Thumb":  {"CMC-MCP": 34.5, "MCP-IP": 21.5,  "IP-Tip": 14.1},
+        "Palm":   {"Wrist_Width": 41.0, "SmallMCP-WristU": 47.2, "ThumbCMC-WristR": 19.2}
     }
-    for i, name in enumerate(["Thumb", "Index", "Middle", "Ring", "Small"]):
-        if name == "Thumb": continue
-        x_off = (i - 2) * spacing
-        canonical_joints[f"{name}_MCP"] = np.array([x_off, 0, 0])
-        canonical_joints[f"{name}_PIP"] = np.array([x_off, 18, 0])
-        canonical_joints[f"{name}_DIP"] = np.array([x_off, 33, 0])
-        canonical_joints[f"{name}_Tip"] = np.array([x_off, 45, 0])
 
-    for name, chain in finger_chains.items():
+    # 2. Define Flat Coordinates (Z=0)
+    # Origin (0,0) is centered between Wrist_R and Wrist_U
+    canonical_joints = {
+        "Wrist_R": np.array([-20.5, -30.0, 0]),
+        "Wrist_U": np.array([20.5,  -30.0, 0]),
+    }
+
+    # Lateral spacing for MCPs
+    spacing = 15.0
+    finger_names = ["Thumb", "Index", "Middle", "Ring", "Small"]
+
+    # Finger placement (Straight vertical along Y)
+    for i, name in enumerate(finger_names):
+        if name == "Thumb":
+            # Thumb is angled anatomically
+            canonical_joints["Thumb_CMC"] = canonical_joints["Wrist_R"] + [-10, 15, 0]
+            canonical_joints["Thumb_MCP"] = canonical_joints["Thumb_CMC"] + [-15, L["Thumb"]["CMC-MCP"], 0]
+            canonical_joints["Thumb_IP"]  = canonical_joints["Thumb_MCP"] + [-5,  L["Thumb"]["MCP-IP"],  0]
+            canonical_joints["Thumb_Tip"] = canonical_joints["Thumb_IP"]  + [-2,  L["Thumb"]["IP-Tip"],  0]
+        else:
+            # Other fingers spread laterally along X
+            x_off = (i - 2.5) * spacing 
+            canonical_joints[f"{name}_MCP"] = np.array([x_off, 0, 0])
+            canonical_joints[f"{name}_PIP"] = np.array([x_off, L[name]["MCP-PIP"], 0])
+            canonical_joints[f"{name}_DIP"] = np.array([x_off, L[name]["MCP-PIP"] + L[name]["PIP-DIP"], 0])
+            canonical_joints[f"{name}_Tip"] = np.array([x_off, L[name]["MCP-PIP"] + L[name]["PIP-DIP"] + L[name]["DIP-Tip"], 0])
+
+    # 3. Build Mesh Primitives
+    # (Consistent iteration order is CRITICAL for vertex correspondence)
+    for name in ["Small", "Ring", "Middle", "Index", "Thumb"]: # Order must match calculation script
+        chain = finger_chains[name]
         for i, joint_name in enumerate(chain):
             p = canonical_joints[joint_name]
+            # Joint Sphere
             parts.append(trimesh.creation.uv_sphere(radius=radius, count=[12, 12]).apply_translation(p))
+            
+            # Bone Cylinder
             if i < len(chain) - 1:
                 p_prox = canonical_joints[chain[i+1]]
                 bone_vec = p - p_prox
-                cyl = trimesh.creation.cylinder(radius=radius, height=np.linalg.norm(bone_vec), sections=12)
+                bone_len = np.linalg.norm(bone_vec)
+                cyl = trimesh.creation.cylinder(radius=radius, height=bone_len, sections=12)
                 cyl.apply_transform(trimesh.geometry.align_vectors([0, 0, 1], bone_vec))
                 cyl.apply_translation((p + p_prox) / 2.0)
                 parts.append(cyl)
 
+    # 4. Build Palm Hull
     palm_pts_flat = np.array([canonical_joints[k] for k in palm_loop])
-    flat_palm_cloud = np.vstack([palm_pts_flat + [0,0,4.5], palm_pts_flat - [0,0,4.5], [0,-15,0]])
+    # Give the flat hull volume for visualization
+    flat_palm_cloud = np.vstack([
+        palm_pts_flat + [0, 0, 4.5], 
+        palm_pts_flat - [0, 0, 4.5], 
+        [0, -15, 0] # center
+    ])
     parts.append(trimesh.Trimesh(vertices=flat_palm_cloud, faces=ConvexHull(flat_palm_cloud).simplices))
+    
     return trimesh.util.concatenate(parts)
 
 def calculate_trial_mesh_scores(f, finger_chains, palm_loop, obj_tree):
@@ -143,7 +186,7 @@ def calculate_trial_mesh_scores(f, finger_chains, palm_loop, obj_tree):
 # --- 3. EXECUTION & VISUALIZATION ---
 
 vertex_scores = calculate_trial_mesh_scores(f, finger_chains, palm_loop, obj_tree)
-flat_canvas = get_canonical_flat_mesh(finger_chains, palm_loop)
+flat_canvas = get_canonical_flat_mesh_from_measurements(finger_chains, palm_loop)
 
 fig = plt.figure(figsize=(10, 10))
 ax = fig.add_subplot(111, projection='3d')
