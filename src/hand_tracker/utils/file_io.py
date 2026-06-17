@@ -96,7 +96,7 @@ def add_video_path(video_folder_paths, logs):
 def find_matching_log(filenames, log_dir):
     """
     Finds the corresponding log file for a list of video/csv filenames,
-    allowing for a +/- 1 second difference in timestamps.
+    allowing for a +/- 2 second difference in timestamps.
     """
     matched_log_fnames = ["nan"] * len(filenames)
     
@@ -112,21 +112,26 @@ def find_matching_log(filenames, log_dir):
             # Parse it into a datetime object
             ts = datetime.strptime(trialname, "%Y-%m-%d_%H-%M-%S")
 
-            # Shift by +1 second and -1 second
-            ts_plus = ts + timedelta(seconds=1)
-            ts_minus = ts - timedelta(seconds=1)
+            # Shift by +1, +2, -1, and -2 seconds
+            ts_plus1 = ts + timedelta(seconds=1)
+            ts_plus2 = ts + timedelta(seconds=2)
+            ts_minus1 = ts - timedelta(seconds=1)
+            ts_minus2 = ts - timedelta(seconds=2)
 
             # Convert back to the same string format
-            ts_plus_str = ts_plus.strftime("%Y-%m-%d_%H-%M-%S")
-            ts_minus_str = ts_minus.strftime("%Y-%m-%d_%H-%M-%S")
+            ts_plus1_str = ts_plus1.strftime("%Y-%m-%d_%H-%M-%S")
+            ts_plus2_str = ts_plus2.strftime("%Y-%m-%d_%H-%M-%S")
+            ts_minus1_str = ts_minus1.strftime("%Y-%m-%d_%H-%M-%S")
+            ts_minus2_str = ts_minus2.strftime("%Y-%m-%d_%H-%M-%S")
 
-            # 2. Search for matching log file names
-            # We look for the timestamp in the basename of the log file
+            # 2. Search for matching log file names (checking all 5 potential strings)
             matches = [
                 l for l in log_fnames 
                 if trialname in os.path.basename(l) 
-                or ts_plus_str in os.path.basename(l) 
-                or ts_minus_str in os.path.basename(l)
+                or ts_plus1_str in os.path.basename(l) 
+                or ts_plus2_str in os.path.basename(l) 
+                or ts_minus1_str in os.path.basename(l)
+                or ts_minus2_str in os.path.basename(l)
             ]
 
             if len(matches) > 1:
