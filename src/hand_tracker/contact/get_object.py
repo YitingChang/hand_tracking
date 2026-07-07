@@ -269,17 +269,17 @@ def save_3d_heatmap(hand_surface_points, scores, v_mesh, faces_mesh, hull_faces,
     fig = plt.figure(figsize=(12, 12))
     ax = fig.add_subplot(111, projection='3d')
     
-    # Palm Mesh Layout
-    palm_volume = Poly3DCollection(hull_faces, facecolors=HAND_COLOR, edgecolors='k', linewidths=0.2, alpha=HAND_OPACITY, zorder=5)
-    ax.add_collection3d(palm_volume)
+    # # Palm Mesh Layout
+    # palm_volume = Poly3DCollection(hull_faces, facecolors=HAND_COLOR, edgecolors='k', linewidths=0.2, alpha=HAND_OPACITY, zorder=5)
+    # ax.add_collection3d(palm_volume)
     
     # Object Mesh Model
     ax.plot_trisurf(v_mesh[:,0], v_mesh[:,1], v_mesh[:,2], triangles=faces_mesh, color='gray', alpha=OBJECT_OPACITY, edgecolor='none', zorder=1)
     
-    # Dense Color Heatmap Scatter
-    ax.scatter(hand_surface_points[:,0], hand_surface_points[:,1], hand_surface_points[:,2], c=scores, cmap='YlOrRd', s=2, alpha=0.9, edgecolors='none')
+    # # Dense Color Heatmap Scatter
+    # ax.scatter(hand_surface_points[:,0], hand_surface_points[:,1], hand_surface_points[:,2], c=scores, cmap='YlOrRd', s=2, alpha=0.9, edgecolors='none')
     
-    ax.set_title("3D Hand Reconstruction: Contact Score Heatmap")
+    ax.set_title("3D Object Reconstruction")
     ax.set_axis_off()
     
     all_pts = np.vstack([v_mesh, top_pts, bottom_pts])
@@ -295,24 +295,11 @@ def save_3d_heatmap(hand_surface_points, scores, v_mesh, faces_mesh, hull_faces,
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
 
-def save_flat_heatmap(standardized_heatmap, output_path):
-    """Generates and saves the 2D canonical heatmap plot."""
-    fig = plt.figure(figsize=(6, 8))
-    plt.imshow(standardized_heatmap, cmap='YlOrRd', origin='lower', aspect='auto')
-    plt.axhline(y=int(HEATMAP_RESOLUTION*FINGER_PALM_SPLIT_RATIO), color='black', linestyle='--', label='MCP Line')
-    plt.title("Standardized Hand Contact Map")
-    plt.xlabel("Fingers (Thumb $\\rightarrow$ Small)")
-    plt.ylabel("Proximal $\\rightarrow$ Distal")
-    plt.colorbar(label='Contact Score')
-    
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.close(fig)
-
 
 # ==========================================
 # 6. PIPELINE CONTROLLER EXECUTION
 # ==========================================
-def process_single_trial_pipeline(session_name, trial_name, log_fname, frame_number):
+def process_single_trial(session_name, trial_name, log_fname, frame_number):
     """Runs the execution cycle for an isolated context frame scenario."""
     print(f"-> Commencing Analysis Pipeline: Trial '{trial_name}' | Frame [{frame_number}]")
     
@@ -354,31 +341,18 @@ def process_single_trial_pipeline(session_name, trial_name, log_fname, frame_num
     
     scores, dists = compute_contact_scores(hand_surface_points, obj_tree)
     
-    # 4. Export Maps and Heatmaps
+    # 4. Export Maps 
     recon_dir = ANALYSIS_ROOT / session_name / 'reconstructions' / trial_name
     recon_dir.mkdir(parents=True, exist_ok=True)
     
-    # Save 3D View
-    img_3d_path = recon_dir / f'contact_scores_{trial_name}_f{frame_number}.png'
+    # Save 3D View (OBJECT ONLY)
+    img_3d_path = recon_dir / f'object_only_{trial_name}_f{frame_number}_{shape_id}.png'
     save_3d_heatmap(hand_surface_points, scores, mesh.vertices, mesh.faces, hull_faces, top_pts, bottom_pts, img_3d_path)
-    
-    # Standardize & Save Flat 2D Map
-    standardized_heatmap = generate_standardized_hand_map(frame_row, hand_surface_points, scores)
-    img_flat_path = recon_dir / f'contact_scores_standardized_heatmap_{trial_name}_f{frame_number}_v1.png'
-    save_flat_heatmap(standardized_heatmap, img_flat_path)
-    
-    # Get trial entry and flat feature vector
-    trial_entry = get_trial_entry(trial_name, log_fname)
-    feature_vector = standardized_heatmap.ravel()
-    trial_entry["contact_vector"] = feature_vector.tolist()
-
-    print(f"   Successfully generated output assets inside: {recon_dir}\n")
-    return trial_entry
+   
 
 def batch_process_session(session_name, trial_names, log_fnames, frame_number=300):
     """Processes multiple trial configurations recorded across an identical session folder."""
     print(f"=== Initiating Batch Processing Session: {session_name} ===")
-    integrated_rows = []
     total_trials = len(trial_names)
     
     for idx, [trial_name, log_fname] in enumerate(zip(trial_names, log_fnames)):
@@ -397,24 +371,21 @@ def batch_process_session(session_name, trial_names, log_fnames, frame_number=30
             continue
 
         try:
-            trial_entry =process_single_trial_pipeline(session_name, trial_name, log_fname, frame_number)
-            integrated_rows.append(trial_entry)
+            process_single_trial(session_name, trial_name, log_fname, frame_number)
+
         except Exception as e:
             print(f"❌ Error occurred while processing Trial: '{trial_name}'. Details: {e}\n")
             continue
             
     print("=== Batch Processing Sequence Completed ===")
-    return integrated_rows
 
 
 # ==========================================
 # 7. MAIN ROUTINE ENTRY POINT
 # ==========================================
 if __name__ == "__main__":
-
     session_names = ["2025-08-19", "2025-08-22", "2025-11-20",
                       "2025-12-08", "2025-12-09", "2025-12-18"]
-    
     for session_name in session_names:
         feature_dir = os.path.join(ANALYSIS_ROOT, session_name, "features")
         log_dir = os.path.join(RAW_DATA_ROOT, session_name, "trial_logs")
@@ -424,17 +395,4 @@ if __name__ == "__main__":
         trial_names = [get_trialname(f) for f in feature_fnames]
 
         # Execute batch pipeline
-        integrated_rows = batch_process_session(session_name, trial_names, log_fnames, frame_number=FRAME_NUMBER)
-
-        if integrated_rows:
-            master_df = pd.DataFrame(integrated_rows, columns=["trial_name", "shape_id", "correct", "is_holdshort", "is_holdlong", "contact_vector"])
-            
-            master_df['contact_vector'] = master_df['contact_vector'].apply(lambda x: str(x))
-            
-            contact_output_dir = ANALYSIS_ROOT / session_name / "contact"
-            contact_output_dir.mkdir(parents=True, exist_ok=True)
-            output_csv_path = contact_output_dir / f"contact_features_{session_name}_f{FRAME_NUMBER}.csv"
-            
-            # Save to CSV
-            master_df.to_csv(output_csv_path, index=False)
-            print(f"✅ Successfully saved integrated contact features CSV: {output_csv_path}")
+        batch_process_session(session_name, trial_names, log_fnames, frame_number=FRAME_NUMBER)

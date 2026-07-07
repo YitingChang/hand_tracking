@@ -22,7 +22,7 @@ SHAPE_ID_SAVE_PATH = ANALYSIS_ROOT / "shape_analysis" / 'shape_ids.pkl'
 
 FRAME_NUMBER = 300
 TRIAL_TYPE = "correct" 
-ORIENTATION_LIST = ['2','02'] 
+ORIENTATION_LIST = ['0', '2', '02'] 
 
 def load_contact_features(file_path):
     """
@@ -102,15 +102,26 @@ def main():
     # Drop any shapes that ended up with NaNs before saving
     df_avg_ordered = df_avg_ordered.dropna().reset_index(drop=True)
 
-    # 4. SAVE THE CSV
+    # 4. SAVE THE PICKLE
     ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
-    save_name_csv = f"contact_avg_features_{TRIAL_TYPE}_{ori_str}.csv"
-    save_path = CONTACT_RDM_SAVE_DIR / save_name_csv
+    save_name_pkl = f"contact_avg_features_{TRIAL_TYPE}_{ori_str}.pkl"
+    save_path = CONTACT_RDM_SAVE_DIR / save_name_pkl
 
-    save_path = CONTACT_RDM_SAVE_DIR / save_name_csv
-    df_avg_ordered.to_csv(save_path, index=False)
+    # Save to pickle
+    df_avg_ordered.to_pickle(save_path)
     
-    print(f"Success! Saved {len(df_avg_ordered)} shapes to {save_path}")
+    print(f"✅ Successfully saved {len(df_avg_ordered)} shapes to {save_path}")
+
+    # 4. SAVE THE CSV
+    # ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
+
+    # save_name_csv = f"contact_avg_features_{TRIAL_TYPE}_{ori_str}.csv"
+    # save_path = CONTACT_RDM_SAVE_DIR / save_name_csv
+
+    # save_path = CONTACT_RDM_SAVE_DIR / save_name_csv
+    # df_avg_ordered.to_csv(save_path, index=False)
+    
+    # print(f"Success! Saved {len(df_avg_ordered)} shapes to {save_path}")
 
     # RDM Calculation
     # Stack the Series of 1D vectors into a unified 2D matrix shape (n_shapes, resolution^2)
