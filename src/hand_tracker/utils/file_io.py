@@ -93,15 +93,17 @@ def add_video_path(video_folder_paths, logs):
     logs["video_folder_name"] = video_folder_names
     return logs
 
-def find_matching_log(filenames, log_dir):
+def find_log_or_robot(filenames, log_dir=None, robot_dir=None):
     """
-    Finds the corresponding log file for a list of video/csv filenames,
+    Finds the corresponding log or robot state file for a list of video/csv filenames,
     allowing for a +/- 2 second difference in timestamps.
     """
-    matched_log_fnames = ["nan"] * len(filenames)
+    matched_fnames = ["nan"] * len(filenames)
     
-    # Get all log files from the directory
-    log_fnames = glob(os.path.join(log_dir, "*.json"))
+    if log_dir is not None:
+        ori_fnames = glob(os.path.join(log_dir, "*.json"))
+    if robot_dir is not None:
+        ori_fnames = glob(os.path.join(robot_dir, "*.gz"))
 
     for idx, fname in enumerate(filenames):
         # 0. Get trial name (timestamp string) from file name
@@ -126,7 +128,7 @@ def find_matching_log(filenames, log_dir):
 
             # 2. Search for matching log file names (checking all 5 potential strings)
             matches = [
-                l for l in log_fnames 
+                l for l in ori_fnames 
                 if trialname in os.path.basename(l) 
                 or ts_plus1_str in os.path.basename(l) 
                 or ts_plus2_str in os.path.basename(l) 
@@ -138,12 +140,13 @@ def find_matching_log(filenames, log_dir):
                 print(f"Warning: Multiple matches found for trial {trialname}: {matches}")
             elif len(matches) == 1:
                 # 3. Assign the found log file path
-                matched_log_fnames[idx] = matches[0]
+                matched_fnames[idx] = matches[0]
                 
         except ValueError:
             print(f"Skipping {fname}: Could not parse timestamp from '{trialname}'")
             continue
 
-    return matched_log_fnames
+    return matched_fnames
+
 
 

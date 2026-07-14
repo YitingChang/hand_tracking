@@ -25,8 +25,8 @@ HAND_COLORS = {
     "Thumb": "#FF5733", "Index": "#33FF57", "Middle": "#3357FF", 
     "Ring": "#F333FF", "Small": "#FFD433", "Palm": "#FFCC99"
 }
-HAND_OPACITY = 0 
-OBJECT_OPACITY = 1 
+HAND_OPACITY = 1 
+OBJECT_OPACITY = 0 
 
 # --- 1. LOAD DATA ---
 # Load 3D pose data from CSV
@@ -156,12 +156,12 @@ dot_names = ["Dot_t1", "Dot_t2", "Dot_t3", "Dot_b1", "Dot_b2", "Dot_b3",
              "Dot_l1", "Dot_l2", "Dot_l3", "Dot_r1", "Dot_r2", "Dot_r3"]
 tgt_dots = np.array([get_xyz(name) for name in dot_names])
 ax.scatter(tgt_dots[:,0], tgt_dots[:,1], tgt_dots[:,2], 
-           color='red', s=20, edgecolors='black', label='Object Markers', zorder=20)
+           color='red', s=20, edgecolors='black', label='Object Markers', zorder=20, alpha=OBJECT_OPACITY)
 
 # --- 4. FINAL FORMATTING ---
 ax.set_title(f"Hand and Object ({trial_name}, Frame {FRAME_NUMBER}, Shape {shape_id})", fontsize=16)
-ax.set_xlabel('X (mm)'); ax.set_ylabel('Y (mm)'); ax.set_zlabel('Z (mm)')
-
+# ax.set_xlabel('X (mm)'); ax.set_ylabel('Y (mm)'); ax.set_zlabel('Z (mm)')
+ax.set_axis_off()
 # Set Equal Aspect Ratio
 all_geometry = np.vstack([v, all_palm_cloud])
 max_range = (all_geometry.max(axis=0) - all_geometry.min(axis=0)).max() / 2.0
@@ -177,5 +177,5 @@ ax.view_init(elev=3, azim=82, roll=-10)
 # Save PNG
 recon_dir = ANALYSIS_ROOT / session_name / 'reconstructions' / trial_name
 recon_dir.mkdir(parents=True, exist_ok=True)
-img_path = recon_dir / f'recon_{trial_name}_f{FRAME_NUMBER}_opc{HAND_OPACITY*10:.0f}.png'
+img_path = recon_dir / f'recon_{trial_name}_f{FRAME_NUMBER}_opcHand{HAND_OPACITY*10:.0f}_opcObj{OBJECT_OPACITY*10:.0f}.png'
 plt.savefig(img_path, dpi=300)

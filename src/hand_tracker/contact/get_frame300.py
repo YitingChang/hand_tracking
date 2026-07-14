@@ -47,7 +47,8 @@ def process_single_trial(session_name, trial_name, log_fname, frame_number):
     recon_dir.mkdir(parents=True, exist_ok=True)
 
     for cam in CAMERA_NAMES:
-        video_path = ANALYSIS_ROOT / session_name / "litpose" / "video_preds" / f"{trial_name}_{cam}_labeled.mp4"
+        # video_path = ANALYSIS_ROOT / session_name / "litpose" / "video_preds" / f"{trial_name}_{cam}_labeled.mp4"
+        video_path = ANALYSIS_ROOT / session_name / "litpose" / "new_videos" / f"{trial_name}_{cam}.mp4"
         if not video_path.exists():
             raise FileNotFoundError(f"Video file not found: {video_path}")
         
@@ -59,7 +60,8 @@ def process_single_trial(session_name, trial_name, log_fname, frame_number):
         
         # Save the extracted frame as an image
 
-        frame_output_path = recon_dir / f"{trial_name}_{cam}_labeled_f{frame_number}.png"
+        # frame_output_path = recon_dir / f"{trial_name}_{cam}_labeled_f{frame_number}.png"
+        frame_output_path = recon_dir / f"{trial_name}_{cam}_f{frame_number}.png"
         cv2.imwrite(str(frame_output_path), frame)
         cap.release()
 
@@ -95,8 +97,9 @@ def batch_process_session(session_name, trial_names, log_fnames, frame_number=30
 # 7. MAIN ROUTINE ENTRY POINT
 # ==========================================
 if __name__ == "__main__":
-    session_names = ["2025-08-19", "2025-08-22", "2025-11-20",
-                      "2025-12-08", "2025-12-09", "2025-12-18"]
+    session_names = ["2025-12-09"]
+    # session_names = ["2025-08-19", "2025-08-22", "2025-11-20",
+    #                   "2025-12-08", "2025-12-09", "2025-12-18"]
     for session_name in session_names:
         feature_dir = os.path.join(ANALYSIS_ROOT, session_name, "features")
         log_dir = os.path.join(RAW_DATA_ROOT, session_name, "trial_logs")
