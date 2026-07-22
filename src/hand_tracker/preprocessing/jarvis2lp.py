@@ -293,7 +293,7 @@ def create_calibration_files(jarvis_annotations_list: list, lp_dir: str, subject
 
 def main(jarvis_annotations_dirs = None, lp_dir = None, subject_name = None, view_mode = 'single', calibration_mode = 'single', context_mode = True):
 
-    ## 1. onvert Jarvis labeled data to Lightning Pose labeled data
+    ## 1. Convert Jarvis labeled data to Lightning Pose labeled data
     if view_mode == 'singleview':
         # --------- Single-view format ---------
         J2LP_sigview_multisession(jarvis_annotations_dirs, lp_dir, subject_name)
@@ -328,15 +328,6 @@ def main(jarvis_annotations_dirs = None, lp_dir = None, subject_name = None, vie
     create_calibration_files(jarvis_annotations_dirs, lp_dir, subject_name)
     create_calibration_index_file(lp_dir=lp_dir)
 
-        # if calibration_mode == 'multiple':
-        #     # Create calibration files (optional if multiple calibrations)
-        #     create_calibration_files(jarvis_annotations_dirs, lp_dir)
-        #     create_calibration_index_file(lp_dir=lp_dir)
-        # else : # Project-wise single calibration
-        #     anipose_cal_src = Path(jarvis_annotations_dirs[0]) / "calibration_anipose" / "calibration.toml"
-        #     cal_dest = Path(lp_dir) / "calibration.toml"
-        #     shutil.copy(anipose_cal_src, cal_dest)
-
     ## 2. Format, rename, organize videos
     src_vid_dir = r'/media/yiting/NewVolume/Data/Videos'
     for jarvis_dir in jarvis_annotations_dirs:
@@ -350,7 +341,7 @@ def main(jarvis_annotations_dirs = None, lp_dir = None, subject_name = None, vie
 
 if __name__ == "__main__":
     jarvis_annotations_dirs = glob.glob(os.path.join(jarvis_annotations_dir, 'annotations*'))  # list of Jarvis labeled datasets
-    lp_dir = r'/home/yiting/Documents/GitHub/lightning-pose/data/multiview_multical_2025' # path to the lp project
+    lp_dir = r'/home/yiting/Documents/GitHub/lightning-pose/data/litpose_202607' # path to the lp project
 
     main(
         jarvis_annotations_dirs=jarvis_annotations_dirs,
