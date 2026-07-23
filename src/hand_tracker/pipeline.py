@@ -108,7 +108,7 @@ def run_step(step_name, extra_args, session_name=None):
 
         # --- POST-PROCESSING FOR INFERENCE ---
         if step_name == "inference":
-            source_dir = lp_model_dir / "video_preds"
+            source_dir = Path(lp_model_dir) / "video_preds"
             dest_dir = ANALYSIS_ROOT / session_name / "litpose" / "video_preds"
             
             print(f"📦 Moving predictions to {dest_dir}...")
