@@ -20,7 +20,6 @@ CONTACT_RDM_SAVE_DIR = ANALYSIS_ROOT / "contact_analysis" / "contact_rdms"
 SHAPE_RDM_SAVE_DIR = ANALYSIS_ROOT / "shape_analysis" / "shape_rdms"
 SHAPE_ID_SAVE_PATH = ANALYSIS_ROOT / "shape_analysis" / 'shape_ids.pkl'
 
-FRAME_NUMBER = 300
 TRIAL_TYPE = "correct" 
 ORIENTATION_LIST = ['0', '2', '02'] 
 
@@ -57,7 +56,7 @@ def main():
     df_all_list = []
 
     for session_name in session_names:
-        contact_feature_path = ANALYSIS_ROOT / session_name / "contact" / f"contact_features_{session_name}_f{FRAME_NUMBER}.csv"
+        contact_feature_path = ANALYSIS_ROOT / session_name / "contact" / f"contact_features_{session_name}_holdwindow.csv"
         df = load_contact_features(contact_feature_path)
         if not df.empty:
             df_all_list.append(df)

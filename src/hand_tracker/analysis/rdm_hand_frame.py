@@ -6,8 +6,7 @@ import numpy as np
 import pickle
 import pandas as pd
 from tqdm import tqdm
-from hand_tracker.utils.file_io import get_trialname, find_log_or_robot
-from hand_tracker.utils.analysis_window import load_window_lookup
+from hand_tracker.utils.file_io import get_trialname, find_matching_log
 
 # --- CONFIGURATION ---
 RAW_DATA_ROOT = Path("/media/yiting/NewVolume/Data/Videos")
@@ -16,14 +15,12 @@ HAND_RDM_SAVE_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_rdms"
 SHAPE_RDM_SAVE_DIR = ANALYSIS_ROOT / "shape_analysis" / "shape_rdms"
 SHAPE_ID_SAVE_PATH = ANALYSIS_ROOT / "shape_analysis" / 'shape_ids.pkl'
 
+FRAME_NUMBER = 300
 TRIAL_TYPE = "correct" 
 ORIENTATION_LIST = ['02', '0', '2'] 
 
-def get_feature_log(feature_dir, feature_fnames, log_dir, log_fnames, window_lookup):
+def get_feature_log(feature_dir, feature_fnames, log_dir, log_fnames):
     df_list = []
-    skipped_no_window = 0
-    skipped_bad_window = 0
-
     for feature_fname, log_fname in zip(feature_fnames, log_fnames):
         if log_fname == "nan": continue
         log_path = os.path.join(log_dir, log_fname)
@@ -33,41 +30,15 @@ def get_feature_log(feature_dir, feature_fnames, log_dir, log_fnames, window_loo
         with open(log_path, 'r') as file:
             json_data = json.load(file)
 
-        trial_name = get_trialname(feature_fname)
-        window = window_lookup.get(trial_name)
-        if window is None:
-            skipped_no_window += 1
-            continue
-
-        start_frame, end_frame = window
-        if pd.isna(start_frame) or pd.isna(end_frame):
-            skipped_no_window += 1
-            continue
-
-        start_frame = max(int(start_frame), 0)
-        end_frame = min(int(end_frame), len(feature_df) - 1)
-        if start_frame > end_frame:
-            skipped_bad_window += 1
-            continue
-
-        window_df = feature_df.iloc[start_frame:end_frame + 1]
-        if window_df.empty:
-            skipped_bad_window += 1
-            continue
-
-        # Average all numeric feature columns over the hold window
-        new_df = window_df.mean(numeric_only=True).to_frame().T
-        new_df["trial_name"] = trial_name
-        new_df["shape_id"] = json_data.get("shape_id", "unknown_0")
-        new_df["correct"] = json_data.get("has_played_success_tone", False)
-        new_df["is_holdshort"] = json_data.get("object_released", False)
-        new_df["is_holdlong"] = json_data.get("object_held", False)
-        df_list.append(new_df)
-
-    if skipped_no_window or skipped_bad_window:
-        print(f"  Skipped {skipped_no_window} trials with no matching hold window, "
-              f"{skipped_bad_window} trials with an empty/invalid window.")
-
+        if FRAME_NUMBER < len(feature_df):
+            new_df = feature_df.iloc[[FRAME_NUMBER]].copy()
+            new_df["trial_name"] = get_trialname(log_fname)
+            new_df["shape_id"] = json_data.get("shape_id", "unknown_0")
+            new_df["correct"] = json_data.get("has_played_success_tone", False)
+            new_df["is_holdshort"] = json_data.get("object_released", False)
+            new_df["is_holdlong"] = json_data.get("object_held", False)
+            df_list.append(new_df)
+            
     if df_list:
         df = pd.concat(df_list, ignore_index=True)
         metadata_cols = ["trial_name", "shape_id", "correct", "is_holdshort", "is_holdlong"]
@@ -88,16 +59,11 @@ def main():
         log_dir = os.path.join(RAW_DATA_ROOT, session_name, "trial_logs")
         if not os.path.exists(feature_dir): continue
 
-        window_lookup = load_window_lookup(session_name)
-        if window_lookup is None:
-            print(f"Warning: no min_holding_window.csv found for {session_name}, skipping session.")
-            continue
-
         feature_fnames = sorted(glob(os.path.join(feature_dir, "*.csv")))
-        log_fnames = find_log_or_robot(feature_fnames, log_dir)
+        log_fnames = find_matching_log(feature_fnames, log_dir)
         feature_fnames_base = [os.path.basename(f) for f in feature_fnames]
 
-        df_session, feature_names = get_feature_log(feature_dir, feature_fnames_base, log_dir, log_fnames, window_lookup)
+        df_session, feature_names = get_feature_log(feature_dir, feature_fnames_base, log_dir, log_fnames)
         if not df_session.empty:
             df_all_list.append(df_session)
             all_feature_names = feature_names 

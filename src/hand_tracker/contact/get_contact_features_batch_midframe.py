@@ -18,6 +18,10 @@ This module implements the batch processing pipeline to extract standardized han
 across multiple trials within a session. It integrates the geometric reconstruction and contact scoring logic 
 from the single-trial pipeline. 
 
+Unlike get_contact_features_batch.py (which averages the contact vector across every frame in each
+trial's hold window), this variant runs the reconstruction only once, at the middle frame of the
+hold window, for much faster processing at the cost of losing the within-window averaging.
+
 The output is a consolidated DataFrame containing trial metadata and the corresponding contact feature vectors 
 (n = resolution x resolution). It also saves the generated 3D heatmaps and standardized 2D contact maps for 
 each trial in the respective session's reconstruction directory.
@@ -358,62 +362,42 @@ def compute_frame_heatmap(frame_row, dot_configs, orientation, mesh_original):
 
 
 def process_single_trial_pipeline(session_name, trial_name, log_fname, start_frame, end_frame):
-    """Runs the reconstruction pipeline across every frame in the hold window and
-    averages the resulting contact vectors. Saves one representative visualization
-    (the window's middle frame)."""
-    print(f"-> Commencing Analysis Pipeline: Trial '{trial_name}' | Hold window [{start_frame}-{end_frame}]")
+    """Runs the reconstruction pipeline once, at the middle frame of the hold window,
+    instead of averaging across every frame (much faster, less precise)."""
+    middle_frame = (start_frame + end_frame) // 2
+    print(f"-> Commencing Analysis Pipeline: Trial '{trial_name}' | Hold window [{start_frame}-{end_frame}] | Mid frame [{middle_frame}]")
 
     # 1. Load Configurations and Tracking Points
     dot_configs = get_marker_configs()
     obj_id, orientation, shape_id = load_trial_metadata(log_fname)
 
-    # Load Object mesh once per trial (re-aligned fresh per frame inside compute_frame_heatmap)
     stl_path = STL_ROOT / f'{obj_id}.stl'
     mesh_original = trimesh.load(stl_path)
 
-    # Load the full tracking dataframe once, then clip the window to what's available
     tracking_df = load_tracking_df(session_name, trial_name)
-    end_frame = min(end_frame, len(tracking_df) - 1)
-    if start_frame > end_frame:
-        raise ValueError(
-            f"Hold window [{start_frame}, {end_frame}] is out of range for trial '{trial_name}' "
-            f"(tracking data has {len(tracking_df)} frames)."
-        )
+    middle_frame = min(middle_frame, len(tracking_df) - 1)
+    frame_row = tracking_df.iloc[middle_frame]
 
-    frame_numbers = list(range(start_frame, end_frame + 1))
-    middle_frame = frame_numbers[len(frame_numbers) // 2]
+    standardized_heatmap, render_extras = compute_frame_heatmap(frame_row, dot_configs, orientation, mesh_original)
 
-    heatmaps = []
-    render_extras_for_save = None
-    for frame_number in frame_numbers:
-        frame_row = tracking_df.iloc[frame_number]
-        standardized_heatmap, render_extras = compute_frame_heatmap(frame_row, dot_configs, orientation, mesh_original)
-        heatmaps.append(standardized_heatmap)
-        if frame_number == middle_frame:
-            render_extras_for_save = render_extras
-
-    avg_heatmap = np.mean(np.stack(heatmaps), axis=0)
-
-    # 4. Export Maps and Heatmaps (representative middle frame only)
+    # 4. Export Maps and Heatmaps
     recon_dir = ANALYSIS_ROOT / session_name / 'reconstructions' / trial_name
     recon_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save 3D View (from the middle frame's reconstruction)
-    img_3d_path = recon_dir / f'contact_scores_{trial_name}_holdwindow.png'
+    img_3d_path = recon_dir / f'contact_scores_{trial_name}_midframe.png'
     save_3d_heatmap(
-        render_extras_for_save["hand_surface_points"], render_extras_for_save["scores"],
-        render_extras_for_save["mesh"].vertices, render_extras_for_save["mesh"].faces,
-        render_extras_for_save["hull_faces"], render_extras_for_save["top_pts"],
-        render_extras_for_save["bottom_pts"], img_3d_path,
+        render_extras["hand_surface_points"], render_extras["scores"],
+        render_extras["mesh"].vertices, render_extras["mesh"].faces,
+        render_extras["hull_faces"], render_extras["top_pts"],
+        render_extras["bottom_pts"], img_3d_path,
     )
 
-    # Save Flat 2D Map (averaged across the whole hold window)
-    img_flat_path = recon_dir / f'contact_scores_standardized_heatmap_{trial_name}_holdwindow.png'
-    save_flat_heatmap(avg_heatmap, img_flat_path)
+    img_flat_path = recon_dir / f'contact_scores_standardized_heatmap_{trial_name}_midframe_v1.png'
+    save_flat_heatmap(standardized_heatmap, img_flat_path)
 
     # Get trial entry and flat feature vector
     trial_entry = get_trial_entry(trial_name, log_fname)
-    trial_entry["contact_vector"] = avg_heatmap.ravel().tolist()
+    trial_entry["contact_vector"] = standardized_heatmap.ravel().tolist()
 
     print(f"   Successfully generated output assets inside: {recon_dir}\n")
     return trial_entry
@@ -496,7 +480,7 @@ if __name__ == "__main__":
             
             contact_output_dir = ANALYSIS_ROOT / session_name / "contact"
             contact_output_dir.mkdir(parents=True, exist_ok=True)
-            output_csv_path = contact_output_dir / f"contact_features_{session_name}_holdwindow.csv"
+            output_csv_path = contact_output_dir / f"contact_features_{session_name}_midframe.csv"
             
             # Save to CSV
             master_df.to_csv(output_csv_path, index=False)

@@ -1,12 +1,14 @@
-# Get frame 300 from lighting pose videos
+# Get the middle-of-hold-window frame from lighting pose videos
 
 import cv2
 import os   
 from pathlib import Path
 import json
 import numpy as np
+import pandas as pd
 from glob import glob
 from hand_tracker.utils.file_io import get_trialname, find_matching_log
+from hand_tracker.utils.analysis_window import load_window_lookup
 
 
 # ==========================================
@@ -16,8 +18,6 @@ RAW_DATA_ROOT = Path("/media/yiting/NewVolume/Data/Videos")
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
 STL_ROOT = Path("/media/yiting/NewVolume/Data/Shapes/shapes_stl")
 CONFIG_JSON_PATH = Path("/home/yiting/Documents/GitHub/hand_tracking/configs/obj_coordinates.json")
-
-FRAME_NUMBER = 300  # Specify the frame index to analyze for each trial
 
 CAMERA_NAMES = ["camTo", "camTL", "camTR", "camBR", "camBL"]  # List of camera identifiers
 
@@ -66,9 +66,10 @@ def process_single_trial(session_name, trial_name, log_fname, frame_number):
         cap.release()
 
 
-def batch_process_session(session_name, trial_names, log_fnames, frame_number=300):
+def batch_process_session(session_name, trial_names, log_fnames, window_lookup):
     print(f"=== Initiating Batch Processing Session: {session_name} ===")
     total_trials = len(trial_names)
+    skipped_no_window = 0
     
     for idx, [trial_name, log_fname] in enumerate(zip(trial_names, log_fnames)):
         print(f"Progress: [{idx + 1}/{total_trials}]")
@@ -85,12 +86,28 @@ def batch_process_session(session_name, trial_names, log_fnames, frame_number=30
             print(f"❌ Skipping Trial '{trial_name}' due to no detected grabbing motion.\n")
             continue
 
+        window = window_lookup.get(trial_name)
+        if window is None or pd.isna(window[0]) or pd.isna(window[1]):
+            print(f"❌ Skipping Trial '{trial_name}' due to no hold window on record.\n")
+            skipped_no_window += 1
+            continue
+
+        start_frame, end_frame = int(window[0]), int(window[1])
+        if start_frame > end_frame:
+            print(f"❌ Skipping Trial '{trial_name}' due to invalid hold window [{start_frame}, {end_frame}].\n")
+            skipped_no_window += 1
+            continue
+
+        middle_frame = (start_frame + end_frame) // 2
+
         try:
-            process_single_trial(session_name, trial_name, log_fname, frame_number)
+            process_single_trial(session_name, trial_name, log_fname, middle_frame)
         except Exception as e:
             print(f"❌ Error occurred while processing Trial: '{trial_name}'. Details: {e}\n")
             continue
             
+    if skipped_no_window:
+        print(f"Skipped {skipped_no_window} trials with no hold window on record.")
     print("=== Batch Processing Sequence Completed ===")
 
 # ==========================================
@@ -104,9 +121,14 @@ if __name__ == "__main__":
         feature_dir = os.path.join(ANALYSIS_ROOT, session_name, "features")
         log_dir = os.path.join(RAW_DATA_ROOT, session_name, "trial_logs")
 
+        window_lookup = load_window_lookup(session_name)
+        if window_lookup is None:
+            print(f"Warning: no min_holding_window.csv found for {session_name}, skipping session.")
+            continue
+
         feature_fnames = sorted(glob(os.path.join(feature_dir, "*.csv")))
         log_fnames = find_matching_log(feature_fnames, log_dir)
         trial_names = [get_trialname(f) for f in feature_fnames]
 
         # Execute batch pipeline
-        batch_process_session(session_name, trial_names, log_fnames, frame_number=FRAME_NUMBER)
+        batch_process_session(session_name, trial_names, log_fnames, window_lookup)

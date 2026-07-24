@@ -7,13 +7,13 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from matplotlib import pyplot as plt
 import cv2
+from hand_tracker.utils.analysis_window import load_window_lookup
 
 # --- CONFIGURATION ---
 RAW_DATA_ROOT = Path("/media/yiting/NewVolume/Data/Videos")
 ANALYSIS_ROOT = Path("/media/yiting/NewVolume/Analysis")
 SAVE_DIR = ANALYSIS_ROOT / "hand_analysis" / "hand_variability"
 
-FRAME_NUMBER = 300
 TRIAL_TYPE = "correct" 
 ORIENTATION_LIST = ['02', '0', '2'] 
 
@@ -36,6 +36,24 @@ def get_frame_from_video(session_name, trial_name, cam_name, frame_number, save_
     cv2.imwrite(str(frame_output_path), frame)
     cap.release()
 
+def get_middle_hold_frame(session_name, trial_name, window_lookup_cache):
+    """Return the middle frame of the trial's hold window, or None if the
+    session/trial has no recorded window."""
+    if session_name not in window_lookup_cache:
+        window_lookup_cache[session_name] = load_window_lookup(session_name)
+
+    window_lookup = window_lookup_cache[session_name]
+    window = window_lookup.get(trial_name) if window_lookup is not None else None
+
+    if window is None:
+        return None
+
+    start_frame, end_frame = window
+    if pd.isna(start_frame) or pd.isna(end_frame):
+        return None
+
+    return int((int(start_frame) + int(end_frame)) / 2)
+
 def main():
     os.makedirs(SAVE_DIR, exist_ok=True)
     session_names = ["2025-08-19", "2025-08-22", "2025-11-20",
@@ -43,13 +61,13 @@ def main():
     
     df_all_list = []
     for session_name in session_names:
-        feature_path = ANALYSIS_ROOT / session_name / "hand" / f"hand_features_{session_name}_f{FRAME_NUMBER}.pkl" 
+        feature_path = ANALYSIS_ROOT / session_name / "hand" / f"hand_features_{session_name}_holdwindow.pkl" 
         if feature_path.exists():
             with open(feature_path, 'rb') as f:
                 df_all_list.append(pd.read_pickle(f))
 
     # Load feature names from the first session metadata
-    meta_path = ANALYSIS_ROOT / session_names[0] / "hand" / f"hand_feature_names_{session_names[0]}_f{FRAME_NUMBER}.pkl"
+    meta_path = ANALYSIS_ROOT / session_names[0] / "hand" / f"hand_feature_names_{session_names[0]}_holdwindow.pkl"
     with open(meta_path, 'rb') as f:
         feature_names = pickle.load(f)
 
@@ -88,6 +106,7 @@ def main():
     
     # Report generation for top 5 most variable shapes
     print("Generating variability driver reports for top 5 shapes...")
+    window_lookup_cache = {}
     for shape_id in variability_by_shape.head(10).index:
         print(f"{shape_id}")
         subset = df_merged[df_merged["shape_id"] == shape_id]
@@ -106,11 +125,15 @@ def main():
         example_trials = subset.loc[top_indices, ['trial_name_video']]
         for trial_name in example_trials['trial_name_video']:
             session_name = trial_name.split('_')[0]
+            frame_number = get_middle_hold_frame(session_name, trial_name, window_lookup_cache)
+            if frame_number is None:
+                print(f"  Skipping {trial_name}: no hold window on record.")
+                continue
 
             for cam_name in CAMERA_NAMES:
                 example_frame_dir = SAVE_DIR / f"{shape_id}_examples"
                 example_frame_dir.mkdir(parents=True, exist_ok=True)
-                get_frame_from_video(session_name, trial_name, cam_name, FRAME_NUMBER, example_frame_dir)
+                get_frame_from_video(session_name, trial_name, cam_name, frame_number, example_frame_dir)
         
     print(f"Analysis complete. Reports saved to {SAVE_DIR}")
 
