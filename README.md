@@ -15,6 +15,10 @@ In Dr. Daniel O'Connor's lab, we are interested in haptic shape perception in pr
 | Inference | Lightning Pose | Predicts keypoints on new videos (`litpose predict`) |
 | Triangulation | Anipose | Combines multi-view 2D predictions into 3D pose |
 | Kinematics | this repo / OpenSim | Feature extraction and inverse kinematics |
+| Object shape | this repo | Shape feature extraction (`src/hand_tracker/shape`) |
+| Hand-object contact | this repo | Contact feature extraction (`src/hand_tracker/contact`) |
+| 3D modeling | this repo | Builds 3D hand and object models (`src/hand_tracker/3d_model`) |
+| RDM / RSA | this repo | Representational dissimilarity matrix construction and representational similarity analysis (`src/hand_tracker/analysis`) |
 
 Relevant tools:
 - Lightning Pose GitHub: https://github.com/danbider/lightning-pose · Paper: https://www.nature.com/articles/s41592-024-02319-1
@@ -227,7 +231,42 @@ Each stage automatically runs in its own conda environment (as configured in `EN
 
 ---
 
-## 9. Notes / Roadmap
+## 9. Analysis Scripts
+
+Beyond the core tracking pipeline, this repo includes scripts for downstream feature extraction and analysis.
+
+### 9.1 Feature Extraction
+
+| Feature | Script location |
+|---|---|
+| Hand kinematics | `src/hand_tracker/kinematics` |
+| Object shape | `src/hand_tracker/shape` |
+| Hand-object contact | `src/hand_tracker/contact` |
+
+For shape feature extraction, run `src/hand_tracker/analysis/rdm_alexnet.py` to get the features from different Alexnet layers and RDMs. Optional but recommended: Reduce feature dimensions using `src/anlaysis/feature_reduction.ipynb`, then run `src/hand_tracker/analysis/rdm_alexnet.py` to get new RDMs (set FEATURE_REDUCTION=TRUE).
+
+### 9.2 RDM and RSA
+
+- Representational dissimilarity matrix (RDM) construction and representational similarity analysis (RSA): `src/hand_tracker/analysis`
+
+Note: When adding more trials and sessions, feature extraction, RDM, RSA need to be computed. Run the hand kinematic part first because the order of shape id for other modalites is based on it in the current scripts.    
+
+### 9.3 3D Hand and Object Models
+
+- Scripts to build 3D hand and object models: `src/hand_tracker/3d_model`
+
+### 9.4 Other Useful Scripts
+
+| Script | Location |
+|---|---|
+| Get `min_holding_window` | `src/hand_tracker/utils` |
+| Camera alignment check | `src/hand_tracker/camera_alignment` |
+| Cloud computing bash scripts | `src/hand_tracker/cloudcomputing` |
+| EKS for prediction smoothing | `src/hand_tracker/eks` |
+
+---
+
+## 10. Notes / Roadmap
 
 - Currently uses **Lightning Pose** (2D CNNs) + **Anipose**(3D triangulation). Exploring 3D and hybrid 2D/3D CNN alternatives: [DANNCE](https://github.com/spoonsso/dannce), [JARVIS-HybridNet](https://github.com/JARVIS-MoCap/JARVIS-HybridNet).
 - Lightning Pose team is actively developing the full 3d tracking pipeline. We can consider to switch to it. 

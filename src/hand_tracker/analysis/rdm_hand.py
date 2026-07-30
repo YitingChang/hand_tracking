@@ -77,8 +77,8 @@ def get_feature_log(feature_dir, feature_fnames, log_dir, log_fnames, window_loo
 
 def main():
     os.makedirs(HAND_RDM_SAVE_DIR, exist_ok=True)
-    session_names = ["2025-08-19", "2025-08-22", "2025-11-20",
-                      "2025-12-08", "2025-12-09", "2025-12-18"]
+    session_names = ["2025-08-19", "2025-08-22", "2025-11-19", "2025-11-20", "2025-12-04",
+                      "2025-12-08", "2025-12-09", "2025-12-16", "2025-12-17", "2025-12-18"]
     
     df_all_list = []
     all_feature_names = []

@@ -20,7 +20,7 @@ TRIAL_TYPE = "correct"
 ORIENTATION_LIST = ['02', '0', '2'] 
 
 ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
-CONTACT_PATH = CONTACT_RDM_DIR / f"contact_rdms_{TRIAL_TYPE}_{ori_str}.pkl"
+CONTACT_PATH = CONTACT_RDM_DIR / f"contact_rdms_{TRIAL_TYPE}_{ori_str}_midframe.pkl"
 ALEX_PATH = SHAPE_RDM_DIR / f"alexnet_rdms_concatenated_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.pkl"
 
 def plot_rdm(rdm, title, save_path):
@@ -60,14 +60,14 @@ def main():
         plt.tight_layout()
         
         # Save the figure
-        save_path = os.path.join(SAVE_DIR, f"correlation_hand_alexnet_{label}_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.png")
+        save_path = os.path.join(SAVE_DIR, f"correlation_hand_alexnet_{label}_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}_midframe.png")
         plt.savefig(save_path)
         plt.close()
 
     # Plot the RDMs for visual inspection
     plot_rdm(contact_rdm, "Contact RDM", RDM_FIG_DIR / f"contact_rdms_{TRIAL_TYPE}_{ori_str}.png")
     for label, data in alex_data.items():
-        plot_rdm(data['rdm'], f"AlexNet {label} RDM", RDM_FIG_DIR / f"alexnet_{label}_rdms_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.png")
+        plot_rdm(data['rdm'], f"AlexNet {label} RDM", RDM_FIG_DIR / f"alexnet_{label}_rdms_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}_midframe.png")
 
     # Plotting the Hierarchy
     plt.figure(figsize=(8, 5))

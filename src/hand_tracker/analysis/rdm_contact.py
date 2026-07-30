@@ -6,11 +6,9 @@ import numpy as np
 import pickle
 import pandas as pd
 import ast
-from tqdm import tqdm
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from scipy.spatial.distance import pdist, squareform
-from hand_tracker.utils.file_io import get_trialname, find_matching_log
 
 
 # --- CONFIGURATION ---
@@ -50,13 +48,13 @@ def feature_reduction(contact_features, n_components=50):
 def main():
 
     os.makedirs(CONTACT_RDM_SAVE_DIR, exist_ok=True)
-    session_names = ["2025-08-19", "2025-08-22", "2025-11-20",
-                      "2025-12-08", "2025-12-09", "2025-12-18"]
+    session_names = ["2025-08-19", "2025-08-22", "2025-11-19", "2025-11-20", "2025-12-04",
+                    "2025-12-08", "2025-12-09", "2025-12-16", "2025-12-17", "2025-12-18"]
     
     df_all_list = []
 
     for session_name in session_names:
-        contact_feature_path = ANALYSIS_ROOT / session_name / "contact" / f"contact_features_{session_name}_holdwindow.csv"
+        contact_feature_path = ANALYSIS_ROOT / session_name / "contact" / f"contact_features_{session_name}_midframe.csv"
         df = load_contact_features(contact_feature_path)
         if not df.empty:
             df_all_list.append(df)
@@ -103,7 +101,7 @@ def main():
 
     # 4. SAVE THE PICKLE
     ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
-    save_name_pkl = f"contact_avg_features_{TRIAL_TYPE}_{ori_str}.pkl"
+    save_name_pkl = f"contact_avg_features_{TRIAL_TYPE}_{ori_str}_midframe.pkl"
     save_path = CONTACT_RDM_SAVE_DIR / save_name_pkl
 
     # Save to pickle
@@ -131,7 +129,7 @@ def main():
     contact_rdm = squareform(pdist(contact_matrix, metric='correlation'))
     
     output = {'rdm': contact_rdm, 'shape_ids': df_avg_ordered['shape_id'].tolist(), 'trial_type': TRIAL_TYPE}
-    save_name_rdm = f"contact_rdms_{TRIAL_TYPE}_{ori_str}.pkl"
+    save_name_rdm = f"contact_rdms_{TRIAL_TYPE}_{ori_str}_midframe.pkl"
     with open(CONTACT_RDM_SAVE_DIR / save_name_rdm, 'wb') as f:
         pickle.dump(output, f)
     print(f"Contact RDM saved for {len(output['shape_ids'])} conditions.")

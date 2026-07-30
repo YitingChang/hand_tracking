@@ -29,7 +29,7 @@ ori_str = "all" if len(ORIENTATION_LIST) == 3 else f"ori{ORIENTATION_LIST[0]}"
 HAND_PATH = HAND_RDM_SAVE_DIR / f"hand_rdms_{TRIAL_TYPE}_{ori_str}.pkl"
 ALEX_PATH = SHAPE_RDM_SAVE_DIR / f"alexnet_rdms_concatenated_{IMAGE_TYPE}_{TRIAL_TYPE}_{ori_str}.pkl"
 PERCEPT_PATH = PERCEPT_RDM_SAVE_DIR / f"percept_rdms_for_hand_{TRIAL_TYPE}_{ori_str}.pkl"
-CONTACT_PATH = CONTACT_RDM_SAVE_DIR / f"contact_rdms_{TRIAL_TYPE}_{ori_str}.pkl" 
+CONTACT_PATH = CONTACT_RDM_SAVE_DIR / f"contact_rdms_{TRIAL_TYPE}_{ori_str}_midframe.pkl" 
 
 # Load hand data to get the EXACT order of shape_ids
 hand_feat_csv = f"hand_avg_features_{TRIAL_TYPE}_{ori_str}.csv"

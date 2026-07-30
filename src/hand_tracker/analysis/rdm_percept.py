@@ -54,8 +54,8 @@ def construct_log_dataframe(log_dir, log_fnames):
     return df
 
 def main():
-    session_names = ["2025-08-19", "2025-08-22", "2025-11-20",
-                      "2025-12-08", "2025-12-09", "2025-12-18"]
+    session_names = ["2025-08-19", "2025-08-22", "2025-11-19", "2025-11-20", "2025-12-04",
+                    "2025-12-08", "2025-12-09", "2025-12-16", "2025-12-17", "2025-12-18"]
     # 0. Construct a master dataframe from all logs
     df_list = []
     for session in session_names:

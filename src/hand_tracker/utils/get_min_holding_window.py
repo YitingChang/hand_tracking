@@ -112,8 +112,8 @@ def process_session(session):
 
 def main():
 
-    session_names = ["2025-08-19", "2025-08-22", "2025-11-20",
-                    "2025-12-08", "2025-12-09", "2025-12-18"]
+    session_names = ["2025-08-19", "2025-08-22", "2025-11-19", "2025-11-20", "2025-12-04",
+                        "2025-12-08", "2025-12-09", "2025-12-16", "2025-12-17", "2025-12-18"]
 
     for session_name in session_names:
         process_session(session_name)
